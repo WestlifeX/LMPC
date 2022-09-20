@@ -31,7 +31,7 @@ def main():
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
     # 求解MPC应该也是用线性模型，因为MPC是为了求解u，而求u应该用不准确的模型，否则就没有误差了，但是得到u之后求下一步x用非线性的
-    ftocp_for_mpc = FTOCP(N_feas, A, B, 0.01 * Q, R)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -50,8 +50,8 @@ def main():
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
         z = odeint(inv_pendulum, xt, [Ts*time, Ts*(time+1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # xcl_feasible.append(z[1])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     print(np.round(np.array(xcl_feasible).T, decimals=2))

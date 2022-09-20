@@ -13,8 +13,8 @@ DISCRETE = True
 USE_DGL = False
 
 
-# function that returns dz/dt，倒立摆的连续微分方程
-def inv_pendulum(state, u, params):
+# function that returns dz/dt，倒立摆的连续微分方程，第二个参数需要留着
+def inv_pendulum(state, t, u, params):
     x, dx, phi, dphi = state
 
     # get params

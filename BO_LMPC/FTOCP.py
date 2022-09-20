@@ -36,7 +36,6 @@ class FTOCP(object):
 			- SS: (optional) contains a set of state and the terminal constraint is ConvHull(SS)
 			- Qfun: (optional) cost associtated with the state stored in SS. Terminal cost is BarycentrcInterpolation(SS, Qfun)
 		"""
-
         # Initialize Variables
         x = Variable((self.n, self.N + 1))
         u = Variable((self.d, self.N))
@@ -44,12 +43,12 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(0, self.N):
-            constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i],
-                       u[:, i] >= -5.0,
-                       u[:, i] <= 5.0,
-                       x[:, i] >= -15.0,
-                       x[:, i] <= 15.0, ]
-
+            # constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i],
+            #            u[:, i] >= -5.0,
+            #            u[:, i] <= 5.0,
+            #            x[:, i] >= -15.0,
+            #            x[:, i] <= 15.0, ]
+            constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
         # Cost Function
         cost = 0
         for i in range(0, self.N):
@@ -89,6 +88,6 @@ class FTOCP(object):
         self.xPred = x.value
         self.uPred = u.value
 
-    # def model(self, x, u):
-    #     # Compute state evolution
-    #     return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
+    def model(self, x, u):
+        # Compute state evolution
+        return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
