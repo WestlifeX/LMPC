@@ -81,7 +81,7 @@ class FTOCP(object):
         # Solve the Finite Time Optimal Control Problem
         problem = Problem(Minimize(cost), constr)
         if CVX:
-            problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs
+            problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs 3q
         else:
             problem.solve(verbose=verbose)
 
@@ -89,6 +89,6 @@ class FTOCP(object):
         self.xPred = x.value
         self.uPred = u.value
 
-    def model(self, x, u):
-        # Compute state evolution
-        return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
+    # def model(self, x, u):
+    #     # Compute state evolution
+    #     return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()

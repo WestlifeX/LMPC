@@ -3,29 +3,35 @@ from FTOCP import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
+from scipy.integrate import odeint
 
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
+from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 
 
 def main():
+    Ts = 0.02
+    params = get_params()
+    linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
-    A = np.array([[1, 1], [0, 1]])
-    B = np.array([[0], [1]])
-    Q = np.diag([1.0, 1.0])  # np.eye(2)
-    R = np.array([[1]])  # np.array([[1]])
+    (Ad, Bd, A, B) = linear_model
+    # A = np.array([[1, 1], [0, 1]])
+    # B = np.array([[0], [1]])
+    Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
+    R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
 
-    print("Computing first feasible trajectory")
-
+    print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [-15.0, 0.0]
+    x0 = [4, 0, 0.1, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
+    # 产生初始可行解的时候应该Q、R随便
+    # 求解MPC应该也是用线性模型，因为MPC是为了求解u，而求u应该用不准确的模型，否则就没有误差了，但是得到u之后求下一步x用非线性的
     ftocp_for_mpc = FTOCP(N_feas, A, B, 0.01 * Q, R)
-
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -43,7 +49,9 @@ def main():
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        z = odeint(inv_pendulum, xt, [Ts*time, Ts*(time+1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl_feasible.append(z[1])
+        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -56,12 +64,12 @@ def main():
 
     # Initialize LMPC object
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, A, B, Q, R)  # ftocp solved by LMPC
+    ftocp = FTOCP(N_LMPC, A, B, Q, R)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
 
     totalIterations = 20  # Number of iterations to perform
-
+    theta = []  # 填theta初始值，等后续确定了theta范围再填
     # run simulation
     # iteration loop
     print("Starting LMPC")
@@ -82,7 +90,8 @@ def main():
 
             # Apply optimal input to the system
             ucl.append(ut)
-            xcl.append(lmpc.ftocp.model(xcl[time], ut))
+            z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+            xcl.append(z[1])
             time += 1
 
         # Add trajectory to update the safe set and value function
