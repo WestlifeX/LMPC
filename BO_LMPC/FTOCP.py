@@ -88,6 +88,6 @@ class FTOCP(object):
         self.xPred = x.value
         self.uPred = u.value
 
-    def model(self, x, u):
-        # Compute state evolution
-        return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
+    # def model(self, x, u):
+    #     # Compute state evolution
+    #     return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()

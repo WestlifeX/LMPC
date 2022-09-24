@@ -15,8 +15,11 @@ import matplotlib.pyplot as plt
 
 ## initialize a GP with data
 ## use likelihood to find GP params
-def get_model(train_x, train_y, state_dict=None, debug=False):
-    gp = SingleTaskGP(train_x, train_y)
+def get_model(train_x, train_y, covar_module=None, mean_module=None, state_dict=None, debug=False):
+    if mean_module and covar_module:
+        gp = SingleTaskGP(train_x, train_y, covar_module=covar_module, mean_module=mean_module)
+    else:
+        gp = SingleTaskGP(train_x, train_y)
     if debug:
         print("Prior hyperparams lengthscale & noise: {}, {}".format(gp.covar_module.base_kernel.lengthscale.item(),
                                                                      gp.likelihood.noise.item()))
@@ -35,24 +38,7 @@ def target(x):
     return torch.exp(-(x - 2) ** 2) + torch.exp(-(x - 6) ** 2 / 10) + 1 / (x ** 2 + 1)
 
 
-### Random Init
-# Randomly sample search space to warm up Gaussian Process
-train_x = torch.FloatTensor(4, 1).uniform_(-2., 10.)
 
-# train_x   = torch.tensor([[3.109], [7.775]])
-train_obj = target(train_x)
-model, mll = get_model(train_x, train_obj, debug=True)
-
-train_x_explore = torch.clone(train_x)
-train_obj_explore = torch.clone(train_obj)
-model_explore, mll_explore = get_model(train_x, train_obj, debug=True)
-# %% md
-### Plot Target
-# We can see that the max is at x~2 .
-# %%
-x = torch.linspace(-2, 10, 10000).reshape(-1, 1)
-y = target(x)
-plt.plot(x, y)
 
 
 # The following function finds the maximum of the Acquisition Function. (only used for plotting purposes)
@@ -62,8 +48,8 @@ def get_max(model, beta):
         acq_function=UCB,
         bounds=torch.tensor([[-2.], [10.]]),
         q=1,  # number of candidates
-        num_restarts=20,  # The number of starting points for multistart acquisition function optimization.
-        raw_samples=100,  # The number of samples for initialization.
+        num_restarts=3,  # The number of starting points for multistart acquisition function optimization.
+        raw_samples=10,  # The number of samples for initialization.
         options={},
         return_best_only=True,
         sequential=False  # If False, uses joint optimization, otherwise uses sequential optimization.
@@ -79,10 +65,10 @@ def step(model, mll, train_x, train_obj, beta=5.):
     UCB = UpperConfidenceBound(model=model, beta=beta)
     new_point_analytic, acq_value_list = optimize_acqf(
         acq_function=UCB,
-        bounds=torch.tensor([[-2.], [10.]]),
+        bounds=torch.tensor([[0.2], [5.]]),
         q=1,
-        num_restarts=20,
-        raw_samples=100,
+        num_restarts=3,
+        raw_samples=10,
         options={},
         return_best_only=True,
         sequential=False
@@ -131,18 +117,36 @@ def plot():
     ax[1, 1].plot(x, acq_explore, label='UCB')
     ax[1, 1].scatter(_argmax_explore, _max_explore, marker='d', color='r', label='Max')
     ax[1, 1].legend()
+    plt.show()
 
 
 # %% md
 #### Initial Plot with 4 random observations
 # %%
-plot()
-# %%
-for i in range(10):
-    model, mll, train_x, train_obj = step(model, mll, train_x, train_obj, beta=1.)
-    model_explore, mll_explore, train_x_explore, train_obj_explore = step(model_explore, mll_explore, train_x_explore,
-                                                                      train_obj_explore, beta=25.)
+if __name__ == "__main__":
+    ### Random Init
+    # Randomly sample search space to warm up Gaussian Process
+    train_x = torch.FloatTensor(4, 1).uniform_(-2., 10.)
+
+    # train_x   = torch.tensor([[3.109], [7.775]])
+    train_obj = target(train_x)
+    model, mll = get_model(train_x, train_obj, debug=True)
+
+    train_x_explore = torch.clone(train_x)
+    train_obj_explore = torch.clone(train_obj)
+    model_explore, mll_explore = get_model(train_x, train_obj, debug=True)
+    # We can see that the max is at x~2 .
+    # %%
+    x = torch.linspace(-2, 10, 10000).reshape(-1, 1)
+    y = target(x)
+    plt.plot(x, y)
     plot()
+    # %%
+    for i in range(10):
+        model, mll, train_x, train_obj = step(model, mll, train_x, train_obj, beta=1.)
+        model_explore, mll_explore, train_x_explore, train_obj_explore = step(model_explore, mll_explore, train_x_explore,
+                                                                          train_obj_explore, beta=25.)
+        plot()
 # The exploitation model fixates on the maximum of the function,
 # while the exploration model builds a more complete surrogate model.
 # They both are able to learn the maximum. But, with poor random initialization,
