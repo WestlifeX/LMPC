@@ -18,6 +18,9 @@ from botorch.optim import optimize_acqf
 from botorch.acquisition import UpperConfidenceBound
 from gpytorch.means import ConstantMean
 from gpytorch.kernels import MaternKernel
+import gaussian_process as gp
+import kernel as kn
+from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor
 def main():
     Ts = 0.1
@@ -86,8 +89,7 @@ def main():
     # iteration loop
     print("Starting LMPC")
     returns = []
-    mean_module = ConstantMean()
-    covar_module = MaternKernel()
+    kernel = kn.Matern32Kernel(1.0, 1.0)
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -105,39 +107,23 @@ def main():
                 train_y.append(train_obj)
             train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
             # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
-            model, mll = get_model(train_x, train_y)
+
+            # model = gp.GaussianProcess(kernel, 0.001)
+            model = GaussianProcessRegressor()
+            model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            # model, mll = get_model(train_x, train_y)
             for i in range(10):
-                UCB = UpperConfidenceBound(model=model, beta=2.)
-                new_point_analytic, acq_value_list = optimize_acqf(
-                    acq_function=UCB,
-                    bounds=torch.tensor(theta_bounds, dtype=torch.float32),
-                    q=1,
-                    num_restarts=3,
-                    raw_samples=100,
-                    options={},
-                    return_best_only=True,
-                    sequential=False
-                )
-                point = new_point_analytic.tolist()[0]
+                new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=5)
+                point = new_point_analytic.tolist()
                 lmpc.theta_update(point)
                 new_res = - iters_once(x0, lmpc, Ts, params, res=True)
-                train_y = torch.cat([torch.tensor(new_res), train_y])
+                train_y = torch.cat([torch.tensor(new_res, dtype=torch.float32), train_y])
                 train_x = torch.cat([torch.tensor(point).unsqueeze(0), train_x])
 
-                model, mll = get_model(train_x, train_y, model.state_dict())
-
-            UCB = UpperConfidenceBound(model=model, beta=2.)
-            new_point_analytic, acq_value_list = optimize_acqf(
-                acq_function=UCB,
-                bounds=torch.tensor(theta_bounds, dtype=torch.float32),
-                q=1,
-                num_restarts=3,
-                raw_samples=100,
-                options={},
-                return_best_only=True,
-                sequential=False
-            )
-            theta = new_point_analytic.tolist()[0]
+                # model.fit(train_x, train_y)
+                model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=5)
+            theta = new_point_analytic.tolist()
             lmpc.theta_update(theta)
             iters_once(x0, lmpc, Ts, params)
             # mean_module = model.mean_module
