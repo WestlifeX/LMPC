@@ -78,8 +78,8 @@ def main():
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
-    bayes = True
-    totalIterations = 20  # Number of iterations to perform
+    bayes = False
+    totalIterations = 50  # Number of iterations to perform
     theta = [1, 1, 1, 1]  # 填theta初始值，等后续确定了theta范围再填
     theta_bounds = [[0.2, 0.2, 0.2, 0.2], [5, 5, 5, 5]]
     # run simulation

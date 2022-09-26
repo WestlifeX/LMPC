@@ -80,7 +80,8 @@ class FTOCP(object):
         # Solve the Finite Time Optimal Control Problem
         problem = Problem(Minimize(cost), constr)
         if CVX:
-            problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs 3q
+            # problem.solve(verbose=verbose)
+            problem.solve(verbose=verbose, solver=ECOS, abstol_inacc=1e-3)  # I find that ECOS is better please use it when solving QPs 3q
         else:
             problem.solve(verbose=verbose)
 

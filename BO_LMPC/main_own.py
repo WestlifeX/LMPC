@@ -6,7 +6,7 @@ from LMPC import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
-
+from tqdm import tqdm
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
@@ -89,7 +89,10 @@ def main():
     # iteration loop
     print("Starting LMPC")
     returns = []
-    kernel = kn.Matern52Kernel(2.0, 1.0)
+    kernel = kn.Matern52Kernel(2.5, 1.0)
+    prior = None
+    n_inital_points = 5
+    train_x_ = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -97,9 +100,7 @@ def main():
         else:
             # lmpc.theta_update(theta)
             # bayes opt
-            print('bayes opt for {} iteration'.format(it))
-            n_inital_points = 10
-            train_x = torch.FloatTensor(n_inital_points, 4).uniform_(theta_bounds[0][0], theta_bounds[0][1])
+            train_x = copy.deepcopy(train_x_)
             train_y = []
             for i in range(n_inital_points):
                 lmpc.theta_update(train_x[i].tolist())
@@ -108,23 +109,25 @@ def main():
             train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
             # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
 
-            model = gp.GaussianProcess(kernel, 0.001)
-            # model = GaussianProcessRegressor()
-            # model.fit(train_x.detach().numpy(), train_y.detach().numpy())
-            model.fit(train_x, train_y)
+            # model = gp.GaussianProcess(kernel, 0.001)
+            model = GaussianProcessRegressor()
+            model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
-            for i in range(10):
-                new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2)
-                point = new_point_analytic.tolist()
+            print('bayes opt for {} iteration'.format(it+1))
+            for i in tqdm(range(10)):
+
+                prior = opt_acquision(model, theta_bounds, beta=3, ts=False, prior=prior)
+                point = prior[0].tolist()
                 lmpc.theta_update(point)
                 new_res = iters_once(x0, lmpc, Ts, params, res=True)
                 train_y = torch.cat([torch.tensor(new_res, dtype=torch.float32), train_y])
                 train_x = torch.cat([torch.tensor(point).unsqueeze(0), train_x])
 
-                model.fit(train_x, train_y)
-                # model.fit(train_x.detach().numpy(), train_y.detach().numpy())
-            new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2)
-            theta = new_point_analytic.tolist()
+                # model.fit(train_x, train_y)
+                model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            prior = opt_acquision(model, theta_bounds, beta=3, ts=False, prior=prior)
+            theta = prior[0].tolist()
             lmpc.theta_update(theta)
             iters_once(x0, lmpc, Ts, params)
             # mean_module = model.mean_module
@@ -140,7 +143,7 @@ def main():
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
-    lmpc.theta_update([1, 1, 1, 1])
+    lmpc.theta_update([1] * len(theta))
     costOpt = lmpc.computeCost(xOpt.T.tolist(), uOpt.T.tolist())
     print("Optimal cost is: ", costOpt[0])
     # Store optimal solution in the lmpc object

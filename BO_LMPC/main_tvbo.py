@@ -6,6 +6,7 @@ from LMPC import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
+from tqdm import tqdm
 
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -22,6 +23,8 @@ import gaussian_process as gp
 import kernel as kn
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor
+
+
 def main():
     Ts = 0.1
     params = get_params()
@@ -36,7 +39,8 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     x0 = [1, 0, 0.1, -0.01]
-                                                                                                                                                                                                                               # Initialize FTOCP object
+
+    # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
     # 求解MPC应该也是用线性模型，因为MPC是为了求解u，而求u应该用不准确的模型，否则就没有误差了，但是得到u之后求下一步x用非线性的
@@ -60,7 +64,7 @@ def main():
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        z = odeint(inv_pendulum, xt, [Ts*time, Ts*(time+1)], args=(ut, params))  # 用非线性连续方程求下一步
+        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         xcl_feasible.append(z[1])
         # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
@@ -82,13 +86,16 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 20  # Number of iterations to perform
-    theta = [1, 1]  # 填theta初始值，等后续确定了theta范围再填
+    theta = [1, 1, 1, 1]  # 填theta初始值，等后续确定了theta范围再填
     theta_bounds = ((0.2, 5), (0.2, 5), (0.2, 5), (0.2, 5))
     # run simulation
     # iteration loop
     print("Starting LMPC")
     returns = []
-    kernel = kn.Matern52Kernel(2.0, 1.0)
+    kernel = kn.Matern52Kernel(2.5, 1.0)
+    prior = None
+    n_inital_points = 5
+    train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -96,25 +103,39 @@ def main():
         else:
             # lmpc.theta_update(theta)
             # bayes opt
-            print('bayes opt for {} iteration'.format(it))
-            n_inital_points = 10
-            train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
-            train_y = []
-            for i in range(n_inital_points):
-                lmpc.theta_update(train_x[i].tolist())
-                train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-                train_y.append(train_obj)
-            train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
+            if it == 0:
+                train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0],
+                                                                                  theta_bounds[0][1])
+                train_y = []
+                for i in range(n_inital_points):
+                    lmpc.theta_update(train_x[i].tolist())
+                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                    train_y.append(train_obj)
+                train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
+            else:
+                train_x = torch.cat([train_x,
+                                     torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0],
+                                                                                             theta_bounds[0][1])])
+                y_t = []
+                for i in range(n_inital_points):
+                    lmpc.theta_update(train_x[i].tolist())
+                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                    y_t.append(train_obj)
+                y_t = torch.tensor(np.array(y_t), dtype=torch.float32).squeeze(1)
+                train_y = torch.cat([train_y, y_t])
             # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
-
+            if train_x.size(0) > 30:
+                train_x = train_x[-30:]
+                train_y = train_y[-30:]
             # model = gp.GaussianProcess(kernel, 0.001)
             model = GaussianProcessRegressor()
             model.fit(train_x.detach().numpy(), train_y.detach().numpy())
             # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
-            for i in range(10):
-                new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2, ts=False)
-                point = new_point_analytic.tolist()
+            print('bayes opt for {} iteration'.format(it + 1))
+            for i in tqdm(range(10)):
+                prior = opt_acquision(model, theta_bounds, beta=3, ts=False, prior=prior)
+                point = prior[0].tolist()
                 lmpc.theta_update(point)
                 new_res = iters_once(x0, lmpc, Ts, params, res=True)
                 train_y = torch.cat([torch.tensor(new_res, dtype=torch.float32), train_y])
@@ -122,8 +143,8 @@ def main():
 
                 # model.fit(train_x, train_y)
                 model.fit(train_x.detach().numpy(), train_y.detach().numpy())
-            new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2, ts=False)
-            theta = new_point_analytic.tolist()
+            prior = opt_acquision(model, theta_bounds, beta=3, ts=False, prior=prior)
+            theta = prior[0].tolist()
             lmpc.theta_update(theta)
             iters_once(x0, lmpc, Ts, params)
             # mean_module = model.mean_module
@@ -139,7 +160,7 @@ def main():
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
-    lmpc.theta_update([1, 1, 1, 1])
+    lmpc.theta_update([1] * len(theta))
     costOpt = lmpc.computeCost(xOpt.T.tolist(), uOpt.T.tolist())
     print("Optimal cost is: ", costOpt[0])
     # Store optimal solution in the lmpc object
@@ -151,9 +172,10 @@ def main():
     filehandler = open(filename, 'wb')
     pickle.dump(lmpc, filehandler)
 
+
 def iters_once(x0, lmpc, Ts, params, res=False):
     # for it in range(0, totalIterations):
-        # Set initial condition at each iteration
+    # Set initial condition at each iteration
     xcl = [x0]
     ucl = []
     time = 0
@@ -177,7 +199,7 @@ def iters_once(x0, lmpc, Ts, params, res=False):
     if not res:
         lmpc.addTrajectory(xcl, ucl)
 
-    return lmpc.computeCost(xcl, ucl, np.eye(4)*10)[0]  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
+    return lmpc.computeCost(xcl, ucl, np.eye(4) * 10)[0]  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
 
 
 if __name__ == "__main__":

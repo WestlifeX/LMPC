@@ -30,9 +30,9 @@ class LMPC(object):
     def theta_update(self, theta):
         # theta0, theta1 = theta
         self.ftocp.Q = 10 * np.eye(4) * np.diag(theta)
-        # self.ftocp.Q[3, 3] = 10 * theta1
+        # self.ftocp.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         self.Q = 10 * np.eye(4) * np.diag(theta)
-        # self.Q[3, 3] = 10 * theta1
+        # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         self.Qfun = []
         for i in range(len(self.SS)):
             self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))

@@ -13,7 +13,7 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt import get_model, step
-
+from tqdm import tqdm
 from botorch.optim import optimize_acqf
 from botorch.acquisition import UpperConfidenceBound
 from gpytorch.means import ConstantMean
@@ -36,7 +36,8 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     x0 = [1, 0, 0.1, -0.01]
-                                                                                                                                                                                                                               # Initialize FTOCP object
+
+    # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
     # 求解MPC应该也是用线性模型，因为MPC是为了求解u，而求u应该用不准确的模型，否则就没有误差了，但是得到u之后求下一步x用非线性的
@@ -81,14 +82,27 @@ def main():
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
-    totalIterations = 20  # Number of iterations to perform
+    totalIterations = 50  # Number of iterations to perform
     theta = [1, 1]  # 填theta初始值，等后续确定了theta范围再填
-    theta_bounds = ((0.2, 5), (0.2, 5), (0.2, 5), (0.2, 5))
+    theta_bounds = ((0.2, 5), (0.2, 5))
     # run simulation
     # iteration loop
     print("Starting LMPC")
     returns = []
-    kernel = kn.Matern52Kernel(2.0, 1.0)
+    kernel = kn.Matern52Kernel(2.5, 1.0)
+    last_res = lmpc.Qfun_true[0][0]
+    eps = 0.01  # 初始没有变化
+    n_inital_points = 20
+    train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
+    train_y = []
+    print('Initializing')
+    for i in tqdm(range(n_inital_points)):
+        lmpc.theta_update(train_x[i].tolist())
+        train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+        train_y.append(train_obj)
+    train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
+    model = GaussianProcessRegressor()
+    model.fit(train_x.detach().numpy(), train_y.detach().numpy())
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -97,38 +111,46 @@ def main():
             # lmpc.theta_update(theta)
             # bayes opt
             print('bayes opt for {} iteration'.format(it))
-            n_inital_points = 10
-            train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
-            train_y = []
-            for i in range(n_inital_points):
-                lmpc.theta_update(train_x[i].tolist())
-                train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-                train_y.append(train_obj)
-            train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
+            # n_inital_points = 1
+            # train_x = torch.FloatTensor(n_inital_points, 4).uniform_(theta_bounds[0][0], theta_bounds[0][1])
+            # train_y = []
+            # for i in range(n_inital_points):
+            #     lmpc.theta_update(train_x[i].tolist())
+            #     train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+            #     train_y.append(train_obj)
+            # train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
             # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
-
-            # model = gp.GaussianProcess(kernel, 0.001)
-            model = GaussianProcessRegressor()
-            model.fit(train_x.detach().numpy(), train_y.detach().numpy())
-            # model.fit(train_x, train_y)
+            # model = gp.TV_GaussianProcess(kernel, 0.001)
+            # model = GaussianProcessRegressor()
+            # model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            # model.fit(train_x, train_y, torch.FloatTensor(Dt))
             # model, mll = get_model(train_x, train_y)
-            for i in range(10):
-                new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2, ts=False)
-                point = new_point_analytic.tolist()
-                lmpc.theta_update(point)
-                new_res = iters_once(x0, lmpc, Ts, params, res=True)
-                train_y = torch.cat([torch.tensor(new_res, dtype=torch.float32), train_y])
-                train_x = torch.cat([torch.tensor(point).unsqueeze(0), train_x])
 
-                # model.fit(train_x, train_y)
-                model.fit(train_x.detach().numpy(), train_y.detach().numpy())
-            new_point_analytic = opt_acquision(train_x, model, theta_bounds, beta=2, ts=False)
-            theta = new_point_analytic.tolist()
-            lmpc.theta_update(theta)
-            iters_once(x0, lmpc, Ts, params)
+            new_point_analytic = opt_acquision(model, theta_bounds, beta=3)
+            point = new_point_analytic.tolist()
+            lmpc.theta_update(point)
+            new_res = iters_once(x0, lmpc, Ts, params)
+            train_y = torch.cat([torch.tensor(new_res, dtype=torch.float32), train_y])
+            train_x = torch.cat([torch.tensor(point).unsqueeze(0), train_x])
+                # model.fit(train_x.detach().numpy(), train_y.detach().numpy())
+            # new_point_analytic = opt_acquision(model, theta_bounds, dt=torch.FloatTensor(dt), beta=3)
+            # theta = new_point_analytic.tolist()
+            # lmpc.theta_update(theta)
+            # iters_once(x0, lmpc, Ts, params)
+
+            # if (it+1) % 5 == 0:
+            #     train_x = train_x[-1:]
+            #     train_y = train_y[-1:]
+            model.fit(train_x.detach().numpy(), train_y.detach().numpy())
             # mean_module = model.mean_module
             # covar_module = model.covar_module
         returns.append(lmpc.Qfun_true[it][0])
+        # lmpc.theta_update([1, 1, 1, 1])
+        # res = iters_once(x0, lmpc, Ts, params, res=True)
+        # eps.insert(0, (last_res - res) / last_res)
+
+
+
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
@@ -139,7 +161,7 @@ def main():
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
-    lmpc.theta_update([1, 1, 1, 1])
+    lmpc.theta_update([1] * len(theta))
     costOpt = lmpc.computeCost(xOpt.T.tolist(), uOpt.T.tolist())
     print("Optimal cost is: ", costOpt[0])
     # Store optimal solution in the lmpc object
