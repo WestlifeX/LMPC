@@ -6,7 +6,7 @@ from botorch.models import SingleTaskGP
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.optim import optimize_acqf
 from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
-
+import gpytorch
 import matplotlib.pyplot as plt
 
 # %% md
@@ -16,10 +16,13 @@ import matplotlib.pyplot as plt
 ## initialize a GP with data
 ## use likelihood to find GP params
 def get_model(train_x, train_y, covar_module=None, mean_module=None, state_dict=None, debug=False):
+    likelihood = gpytorch.likelihoods.GaussianLikelihood(
+        noise_constraint=gpytorch.constraints.GreaterThan(1e-4)
+    )
     if mean_module and covar_module:
         gp = SingleTaskGP(train_x, train_y, covar_module=covar_module, mean_module=mean_module)
     else:
-        gp = SingleTaskGP(train_x, train_y)
+        gp = SingleTaskGP(train_x, train_y, likelihood=likelihood)
     if debug:
         print("Prior hyperparams lengthscale & noise: {}, {}".format(gp.covar_module.base_kernel.lengthscale.item(),
                                                                      gp.likelihood.noise.item()))

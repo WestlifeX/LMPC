@@ -66,16 +66,18 @@ class FTOCP(object):
                 lambVar = Variable((SS.shape[1], 1), boolean=True)  # Initialize vector of variables
 
             # Terminal Constraint if SS not empty --> enforce the terminal constraint
+            # 改变Q的话，xN就会不一样，xN不一样约束这里就会不一样
             constr += [SS @ lambVar[:, 0] == x[:, self.N],  # Terminal state \in ConvHull(SS)
                        np.ones((1, SS.shape[1])) @ lambVar[:, 0] == 1,  # Multiplies \lambda sum to 1
                        lambVar >= 0]  # Multiplier are positive definite
 
             # Terminal cost if SS not empty
-            cost += Qfun[0, :] @ lambVar[:, 0]  # It terminal cost is given by interpolation using \lambda
+            cost += Qfun[0, :] @ lambVar[:, 0]  # Its terminal cost is given by interpolation using \lambda
 
             self.lamb = lambVar.value
         else:
-            cost += norm((self.Q ** 0.5) @ x[:, self.N]) ** 2  # If SS is not given terminal cost is quadratic
+            cost += norm((self.Q
+                          ** 0.5) @ x[:, self.N]) ** 2  # If SS is not given terminal cost is quadratic
 
         # Solve the Finite Time Optimal Control Problem
         problem = Problem(Minimize(cost), constr)
@@ -89,6 +91,6 @@ class FTOCP(object):
         self.xPred = x.value
         self.uPred = u.value
 
-    # def model(self, x, u):
-    #     # Compute state evolution
-    #     return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
+    def model(self, x, u):
+        # Compute state evolution
+        return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()

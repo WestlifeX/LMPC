@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
-from bayes_opt import get_model, step
+from bayes_opt_mine import get_model, step
 
 from botorch.optim import optimize_acqf
 from botorch.acquisition import UpperConfidenceBound
@@ -41,7 +41,7 @@ def main():
     # 修改了初值的位置，因为x离原点太远了，把cart调回原点需要太多步了（x的初值应该是可以改的，因为线性化只针对phi）
     # 增大了采样时间0.02 --> 0.1，同上，采样时间越小需要的步数就越多
     # 增大了Q（原来是0.01*Q），Q大一点应该可以快点收敛吧
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.01 * Q, R)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -79,8 +79,9 @@ def main():
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
-    totalIterations = 50  # Number of iterations to perform
-    theta = [1, 1, 1, 1]  # 填theta初始值，等后续确定了theta范围再填
+    totalIterations = 20  # Number of iterations to perform
+    theta = [1, 1, 1, 1]
+    lmpc.theta_update(theta)# 填theta初始值，等后续确定了theta范围再填
     theta_bounds = [[0.2, 0.2, 0.2, 0.2], [5, 5, 5, 5]]
     # run simulation
     # iteration loop
@@ -96,6 +97,7 @@ def main():
             # lmpc.theta_update(theta)
             # bayes opt
             print('bayes opt for {} iteration'.format(it))
+
             n_inital_points = 10
             train_x = torch.FloatTensor(n_inital_points, 4).uniform_(theta_bounds[0][0], theta_bounds[1][0])
             train_y = []
@@ -104,7 +106,8 @@ def main():
                 train_obj = - iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
                 train_y.append(train_obj)
             train_y = torch.tensor(np.array(train_y), dtype=torch.float32).squeeze(1)
-            # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
+            train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
+
             model, mll = get_model(train_x, train_y)
             for i in range(10):
                 UCB = UpperConfidenceBound(model=model, beta=2.)
