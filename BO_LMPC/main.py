@@ -50,7 +50,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-3):
+    while np.dot(xt, xt) > 10 ** (-6):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP

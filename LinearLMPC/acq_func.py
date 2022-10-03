@@ -4,7 +4,7 @@ import torch
 from scipy.optimize import minimize
 
 def opt_acquision(model, bounds, beta,
-                  ts=True, dt=None, prior=None, random_search=False, n_restarts=10):
+                  ts=True, dt=None, prior=None, random_search=False, n_restarts=100):
     """
     The acqusition function tries to figure out
     which point is most effective/economic to evaluate with the object function
@@ -65,9 +65,9 @@ def acquisition(Xsamples, model, beta, ts=True, dt=None):
     # probs = (mu - beta * std.reshape(-1, 1))
     if ts:
         with torch.no_grad():
-            probs = - (mu + beta * std.reshape(-1, 1)).detach().numpy()
+            probs = mu - beta * std.reshape(-1, 1).detach().numpy()
     else:
-        probs = - (mu + beta * std.reshape(-1, 1))
+        probs = mu - beta * std.reshape(-1, 1)
     return probs
 
 def ucb(x, model, beta):

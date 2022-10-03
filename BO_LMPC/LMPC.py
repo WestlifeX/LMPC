@@ -35,23 +35,23 @@ class LMPC(object):
         self.Q = 10 * np.eye(4) * np.diag(theta)
         # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.R = np.eye(1) * theta
-        self.Qfun = []
-        for i in range(len(self.SS)):
-            self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
+        # self.Qfun = []
+        # for i in range(len(self.SS)):
+        #     self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
     def addTrajectory(self, x, u):
         # Add the feasible trajectory x and the associated input sequence u to the safe set
-        self.SS.append(copy.copy(x))
-        self.uSS.append(copy.copy(u))
+        # self.SS.append(copy.copy(x))
+        # self.uSS.append(copy.copy(u))
 
         # Compute and store the cost associated with the feasible trajectory
-        cost = self.computeCost(x, u)
-        self.Qfun.append(cost)
+        # cost = self.computeCost(x, u)
+        # self.Qfun.append(cost)
 
         cost_true = self.computeCost(x, u, self.Q_true)
         self.Qfun_true.append(cost_true)
 
         # Initialize zVector
-        self.zt = np.array(x[self.ftocp.N], dtype=object)
+        # self.zt = np.array(x[self.ftocp.N], dtype=object)
 
         # Augment iteration counter and print the cost of the trajectories stored in the safe set
         self.it = self.it + 1

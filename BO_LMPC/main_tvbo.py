@@ -57,7 +57,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-3):
+    while np.dot(xt, xt) > 10 ** (-6):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -122,7 +122,7 @@ def main():
             #                                 size=(n_inital_points, theta_bounds.shape[0]))))
             #     y_t = []
             #     for i in range(n_inital_points):
-            #         lmpc.theta_update(train_x[-5+i].tolist())
+            #         lmpc.theta_update(train_x[-n_inital_points+i].tolist())
             #         train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             #         y_t.append(train_obj)
             #     y_t = np.squeeze(y_t, axis=1)

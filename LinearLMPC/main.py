@@ -20,6 +20,7 @@ from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 def main():
     # Define system dynamics and cost
+    np.random.seed(1)
     A = np.array([[1, 1], [0, 1]])
     B = np.array([[0], [1]])
     Q = np.diag([1.0, 1.0])  # np.eye(2)
@@ -31,7 +32,7 @@ def main():
     x0 = [-15.0, 0.0]
 
     # Initialize FTOCP object
-    N_feas = 10
+    N_feas = 5
     ftocp_for_mpc = FTOCP(N_feas, A, B, 0.01 * Q, R)
 
     # ====================================================================================
@@ -70,7 +71,7 @@ def main():
 
     totalIterations = 20  # Number of iterations to perform
     n_params = 2
-    theta_bounds = np.array([[0.2, 5]] * n_params)
+    theta_bounds = np.array([[0.5, 2]] * n_params)
     # run simulation
     # iteration loop
     print("Starting LMPC")
@@ -100,7 +101,7 @@ def main():
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for _ in tqdm(range(n_iters)):
-            next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
+            next_sample = opt_acquision(model, theta_bounds, beta=25, ts=False)
             # prior = next_sample.reshape(1, -1)  # 仅用在时变里，但是没什么用
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -117,17 +118,18 @@ def main():
         # prior = next_sample.reshape(1, -1)  # 仅用在时变里
         lmpc.theta_update(last_params.tolist()[0])
         result = iters_once(x0, lmpc, res=True)
-        # res = iters_once(x0, lmpc, Ts, params)
+        # # res = iters_once(x0, lmpc, Ts, params)
         if result[0][0] < np.min(train_y[-(n_inital_points + n_iters):, ], axis=0)[0]:
             iters_once(x0, lmpc)
+            print('optimized theta: ', last_params)
             # prior = last_params
         else:
             theta = train_x[-(n_inital_points + n_iters):][np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)]
             lmpc.theta_update(theta.tolist()[0])
             iters_once(x0, lmpc)
-            # prior = theta.reshape(1, -1)
-            last_params = copy.deepcopy(theta.reshape(1, -1))
-        print('optimized theta: ', last_params)
+        # prior = theta.reshape(1, -1)
+        #     last_params = copy.deepcopy(theta.reshape(1, -1))
+            print('optimized theta: ', theta)
         # mean_module = model.mean_module
         # covar_module = model.covar_module
         returns.append(lmpc.Qfun_true[it][0])
@@ -139,7 +141,7 @@ def main():
     # ====================================================================================
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
     ftocp_opt = FTOCP(N, A, B, Q, R)
-    ftocp_opt.solve(xcl[0])
+    ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
     costOpt = lmpc.computeCost(xOpt.T.tolist(), uOpt.T.tolist(), np.eye(2))

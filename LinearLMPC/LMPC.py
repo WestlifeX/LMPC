@@ -79,6 +79,11 @@ class LMPC(object):
         SS_vector = np.squeeze(list(itertools.chain.from_iterable(self.SS))).T  # From a 3D list to a 2D array
         Qfun_vector = np.expand_dims(np.array(list(itertools.chain.from_iterable(self.Qfun))),
                                      0)  # From a 2D list to a 1D array
+        # SS_vector = np.squeeze(
+        #     np.array(list(itertools.chain.from_iterable(self.SS)), dtype=object)).T  # From a 3D list to a 2D array
+        # Qfun_vector = list(itertools.chain.from_iterable(self.Qfun))
+        # Qfun_vector = np.array(Qfun_vector, dtype=object)
+        # Qfun_vector = np.expand_dims(Qfun_vector, 0)
 
         # Solve the FTOCP.
         self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
