@@ -1,3 +1,4 @@
+import cvxpy.error
 import numpy as np
 from numpy import linalg as la
 import pdb
@@ -38,6 +39,7 @@ class LMPC(object):
         self.Qfun = []
         for i in range(len(self.SS)):
             self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
+
     def addTrajectory(self, x, u):
         # Add the feasible trajectory x and the associated input sequence u to the safe set
         self.SS.append(copy.copy(x))
@@ -79,15 +81,19 @@ class LMPC(object):
 
         # Build SS and cost matrices used in the ftocp
         # NOTE: it is possible to use a subset of the stored data to reduce computational complexity while having all guarantees on safety and performance improvement
-        SS_vector = np.squeeze(np.array(list(itertools.chain.from_iterable(self.SS)), dtype=object)).T  # From a 3D list to a 2D array
+        SS_vector = np.squeeze(
+            np.array(list(itertools.chain.from_iterable(self.SS)), dtype=object)).T  # From a 3D list to a 2D array
         Qfun_vector = list(itertools.chain.from_iterable(self.Qfun))
         Qfun_vector = np.array(Qfun_vector, dtype=object)
         Qfun_vector = np.expand_dims(Qfun_vector, 0)
         # Qfun_vector = np.expand_dims(np.array(list(itertools.chain.from_iterable(self.Qfun))),
-                                     # 0)  # From a 2D list to a 1D array
+        # 0)  # From a 2D list to a 1D array
 
         # Solve the FTOCP.
-        self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
+        try:
+            self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
+        except cvxpy.error.SolverError:
+            print('solver error')
 
         # Update predicted trajectory
         self.xPred = self.ftocp.xPred

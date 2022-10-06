@@ -39,7 +39,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.1, -0.01]
+    x0 = [1, 0, 0.25, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -48,7 +48,7 @@ def main():
     # 修改了初值的位置，因为x离原点太远了，把cart调回原点需要太多步了（x的初值应该是可以改的，因为线性化只针对phi）
     # 增大了采样时间0.02 --> 0.1，同上，采样时间越小需要的步数就越多
     # 增大了Q（原来是0.01*Q），Q大一点应该可以快点收敛吧
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, copy.deepcopy(Q), R)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -62,6 +62,15 @@ def main():
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
 
+        # ucl_feasible = ftocp_for_mpc.uPred.T.tolist()
+
+        # Apply optimal input to the system
+        # ucl.append(ut)
+        # for i in range(len(ucl_feasible)):
+            # ut = ucl_feasible[i]
+            # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+            # xcl_feasible.append(z[1].tolist())
+            # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
@@ -70,8 +79,8 @@ def main():
         # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
-    print(np.round(np.array(xcl_feasible).T, decimals=2))
-    print(np.round(np.array(ucl_feasible).T, decimals=2))
+    # print(np.round(np.array(xcl_feasible).T, decimals=2))
+    # print(np.round(np.array(ucl_feasible).T, decimals=2))
     # ====================================================================================
 
     # ====================================================================================
@@ -85,52 +94,55 @@ def main():
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
-    bayes = False
-    totalIterations = 20  # Number of iterations to perform
+    bayes = True
+    totalIterations = 100  # Number of iterations to perform
     n_params = 4
+    theta_bounds = np.array([[0.5, 2]] * n_params)
+    # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     # iteration loop
     print("Starting LMPC")
     returns = []
+    prior = None
     n_inital_points = 10
     n_iters = 10
+    # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    prior = np.array([1] * n_params).reshape(1, -1)
-    last_params = copy.deepcopy(prior)
+    last_params = np.array([1] * n_params).reshape(1, -1)
     for it in range(0, totalIterations):
-        theta_bounds = np.zeros((n_params, 2))
-        theta_bounds[:, 0] = last_params / 10
-        theta_bounds[:, 1] = last_params * 10
         if not bayes:
             # pass
             iters_once(x0, lmpc, Ts, params)
         else:
-            # lmpc.theta_update(theta)
             # bayes opt
+            #
+            theta_bounds[:, 0] = last_params / 2
+            theta_bounds[:, 1] = last_params * 2
             print("Initializing")
-            # if it == 0:
-            train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-                                        size=(n_inital_points, theta_bounds.shape[0]))
-            train_y = []
-            for i in tqdm(range(n_inital_points)):
-                lmpc.theta_update(train_x[i].tolist())
-                train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-                train_y.append(train_obj)
-            train_y = np.squeeze(train_y, axis=1)
-            # else:
-            #     train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-            #                                 size=(n_inital_points, theta_bounds.shape[0]))))
-            #     y_t = []
-            #     for i in range(n_inital_points):
-            #         lmpc.theta_update(train_x[-n_inital_points+i].tolist())
-            #         train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-            #         y_t.append(train_obj)
-            #     y_t = np.squeeze(y_t, axis=1)
-            #     train_y = np.vstack([train_y, y_t])
-            # train_y = (train_y - torch.mean(train_y)) / torch.std(train_y)  # 做个标准化（标准化好像对结果有反作用）
-            # if train_x.shape[0] > 100:
-            #     train_x = train_x[-100:, :]
-            #     train_y = train_y[-100:, :]
+            if it == 0:
+                train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
+                                            size=(n_inital_points, theta_bounds.shape[0]))
+                train_y = []
+                for i in tqdm(range(n_inital_points)):
+                    lmpc.theta_update(train_x[i].tolist())
+                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                    train_y.append(train_obj)
+                train_y = np.array(train_y).reshape(-1, 1)
+
+            else:
+                train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
+                                            size=(n_inital_points, theta_bounds.shape[0]))))
+                y_t = []
+                for i in range(n_inital_points):
+                    lmpc.theta_update(train_x[i-n_inital_points].tolist())
+                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                    y_t.append(train_obj)
+                y_t = np.array(y_t).reshape(-1, 1)
+                # y_t = np.squeeze(y_t, axis=1)
+                train_y = np.vstack([train_y, y_t])
+            if train_x.shape[0] > 100:
+                train_x = train_x[-100:, :]
+                train_y = train_y[-100:, :]
             # model = gp.GaussianProcess(kernel, 0.001)
             model = GaussianProcessRegressor(kernel=kernels.Matern(), n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
@@ -139,33 +151,31 @@ def main():
             print('bayes opt for {} iteration'.format(it + 1))
             for _ in tqdm(range(n_iters)):
                 next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
-                # prior = next_sample.reshape(1, -1)  # 仅用在时变里，但是没什么用
                 # 避免出现重复数据影响GP的拟合
                 if np.any(np.abs(next_sample - train_x) <= thresh):
                     next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
                 lmpc.theta_update(next_sample.tolist())
                 new_res = iters_once(x0, lmpc, Ts, params, res=True)
                 train_y = np.vstack((train_y, new_res))
-                train_x = np.vstack((train_x, next_sample))
+                train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-                # model.fit(train_x, train_y)
                 model.fit(train_x, train_y)
+            # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
+            # res = iters_once(x0, lmpc, Ts, params)
+            lmpc.theta_update([1, 1, 1, 1])
+            print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
-            # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False, prior=prior)
-            # prior = next_sample.reshape(1, -1)  # 仅用在时变里
             lmpc.theta_update(last_params.tolist()[0])
             result = iters_once(x0, lmpc, Ts, params, res=True)
-            # res = iters_once(x0, lmpc, Ts, params)
-            if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):, ], axis=0)[0]:
+            if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):], axis=0)[0]:
                 iters_once(x0, lmpc, Ts, params)
-                # prior = last_params
             else:
                 theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)]
                 lmpc.theta_update(theta.tolist()[0])
                 iters_once(x0, lmpc, Ts, params)
-                # prior = theta.reshape(1, -1)
                 last_params = copy.deepcopy(theta.reshape(1, -1))
             print('optimized theta: ', last_params)
+
             # mean_module = model.mean_module
             # covar_module = model.covar_module
         returns.append(lmpc.Qfun_true[it][0])
@@ -179,7 +189,7 @@ def main():
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
-    lmpc.theta_update([1] * len(theta))
+    lmpc.theta_update([1] * n_params)
     costOpt = lmpc.computeCost(xOpt.T.tolist(), uOpt.T.tolist())
     print("Optimal cost is: ", costOpt[0])
     # Store optimal solution in the lmpc object
@@ -199,7 +209,8 @@ def iters_once(x0, lmpc, Ts, params, res=False):
     ucl = []
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xcl[time], xcl[time]) > 10 ** (-3):
+    # while np.dot(xcl[time], xcl[time]) > 10 ** (-5):
+    for time in range(100):
         # Read measurement
         xt = xcl[time]
 
@@ -210,9 +221,9 @@ def iters_once(x0, lmpc, Ts, params, res=False):
 
         # Apply optimal input to the system
         ucl.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl.append(z[1])
-        xcl.append(lmpc.ftocp.A * xt + lmpc.ftocp.B * ut)
+        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl.append(z[1])
+        # xcl.append(lmpc.ftocp.model(xt, ut))
         time += 1
 
     # Add trajectory to update the safe set and value function
@@ -221,6 +232,39 @@ def iters_once(x0, lmpc, Ts, params, res=False):
 
     return lmpc.computeCost(xcl, ucl, np.eye(4) * 10)[0]  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
 
+def iters_once_(x0, lmpc, Ts, params, res=False):
+    # for it in range(0, totalIterations):
+    # Set initial condition at each iteration
+    xcl = [x0]
+    ucl = []
+    time = 0
+    # time Loop (Perform the task until close to the origin)
+    # while np.dot(xcl[time], xcl[time]) > 10 ** (-3):
+    # for time in range(50):
+    # Read measurement
+    xt = xcl[time]
+    # Solve FTOCP
+    lmpc.solve(xt, verbose=False)
+    # Read optimal input
+    xcl = lmpc.xPred.T.tolist()
+    ucl = lmpc.uPred.T.tolist()
+    # ut = lmpc.uPred[:, 0][0]
+
+    # Apply optimal input to the system
+    # ucl.append(ut)
+    # for i in range(len(ucl)):
+    #     ut = ucl[i]
+    #     z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+    #     xcl.append(z[1].tolist())
+
+        # xcl.append(lmpc.ftocp.model(xt, ut))
+    # time += 1
+
+    # Add trajectory to update the safe set and value function
+    if not res:
+        lmpc.addTrajectory(xcl, ucl)
+
+    return np.array(lmpc.computeCost(xcl, ucl, np.eye(4) * 10)[0]).reshape(1, -1)  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
 
 if __name__ == "__main__":
     main()
