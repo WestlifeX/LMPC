@@ -74,9 +74,9 @@ def main():
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        # xcl_feasible.append(z[1])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -94,8 +94,8 @@ def main():
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
-    bayes = False
-    totalIterations = 100  # Number of iterations to perform
+    bayes = True
+    totalIterations = 200  # Number of iterations to perform
     n_params = 4
     theta_bounds = np.array([[0.5, 2]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
