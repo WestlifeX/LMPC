@@ -139,9 +139,9 @@ def main():
                 y_t = np.array(y_t).reshape(-1, 1)
                 # y_t = np.squeeze(y_t, axis=1)
                 train_y = np.vstack([train_y, y_t])
-            if train_x.shape[0] > 100:
-                train_x = train_x[-100:, :]
-                train_y = train_y[-100:, :]
+            # if train_x.shape[0] > 100:
+            #     train_x = train_x[-100:, :]
+            #     train_y = train_y[-100:, :]
             # model = gp.GaussianProcess(kernel, 0.001)
             model = GaussianProcessRegressor(kernel=kernels.Matern(), n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
