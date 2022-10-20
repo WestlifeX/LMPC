@@ -23,7 +23,7 @@ import gaussian_process as gp
 import kernel as kn
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
-
+import cvxpy
 
 def main():
     np.random.seed(1)
@@ -97,15 +97,15 @@ def main():
     bayes = True
     totalIterations = 200  # Number of iterations to perform
     n_params = 4
-    theta_bounds = np.array([[0.5, 2]] * n_params)
-    # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
+    theta_bounds = np.array([[0.1, 1000]] * n_params)
+    # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])
     # run simulation
     # iteration loop
     print("Starting LMPC")
     returns = []
     prior = None
-    n_inital_points = 10
-    n_iters = 10
+    n_inital_points = 5
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
@@ -115,15 +115,25 @@ def main():
             iters_once(x0, lmpc, Ts, params)
         else:
             # bayes opt
+            # theta_bounds[:, 0] = last_params / 2
+            # theta_bounds[:, 1] = last_params * 2
+            # theta_bounds = np.clip(theta_bounds, 0, 1000)
             print("Initializing")
             # if it == 0:
-            train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
+            x_init = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
+            train_x = []
             train_y = []
+            n_None = 0
             for i in tqdm(range(n_inital_points)):
-                lmpc.theta_update(train_x[i].tolist())
+                lmpc.theta_update(x_init[i].tolist())
                 train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-                train_y.append(train_obj)
+                if train_obj is not None:
+                    train_x.append(x_init[i])
+                    train_y.append(train_obj)
+                else:
+                    n_None += 1
+            train_x = np.array(train_x).reshape(-1, 4)
             train_y = np.array(train_y).reshape(-1, 1)
 
             # else:
@@ -146,6 +156,7 @@ def main():
             # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
             print('bayes opt for {} iteration'.format(it + 1))
+
             for _ in tqdm(range(n_iters)):
                 next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
                 # 避免出现重复数据影响GP的拟合
@@ -153,21 +164,24 @@ def main():
                     next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
                 lmpc.theta_update(next_sample.tolist())
                 new_res = iters_once(x0, lmpc, Ts, params, res=True)
-                train_y = np.vstack((train_y, new_res))
-                train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
+                if new_res is not None:
+                    train_y = np.vstack((train_y, new_res))
+                    train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-                model.fit(train_x, train_y)
+                    model.fit(train_x, train_y)
+                else:
+                    n_None += 1
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
             # res = iters_once(x0, lmpc, Ts, params)
-            lmpc.theta_update([1, 1, 1, 1])
-            print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
+            # lmpc.theta_update([1, 1, 1, 1])
+            # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
             # lmpc.theta_update(last_params.tolist()[0])
             # result = iters_once(x0, lmpc, Ts, params, res=True)
             # if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):], axis=0)[0]:
             #     iters_once(x0, lmpc, Ts, params)
             # else:
-            theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)]
+            theta = train_x[-(n_inital_points+n_iters-n_None):][np.argmin(train_y[-(n_inital_points+n_iters-n_None):], axis=0)]
             lmpc.theta_update(theta.tolist()[0])
             iters_once(x0, lmpc, Ts, params)
             last_params = copy.deepcopy(theta.reshape(1, -1))
@@ -210,11 +224,23 @@ def iters_once(x0, lmpc, Ts, params, res=False):
     for time in range(100):
         # Read measurement
         xt = xcl[time]
-
+        if hasattr(lmpc, 'uPred'):
+            last_u_pred = lmpc.uPred
+            last_x_pred = lmpc.xPred
         # Solve FTOCP
-        lmpc.solve(xt, verbose=False)
+        try:
+            lmpc.solve(xt, verbose=False)
+        except cvxpy.error.SolverError:
+            return None
         # Read optimal input
-        ut = lmpc.uPred[:, 0][0]
+        try:
+            ut = lmpc.uPred[:, 0][0]
+        except IndexError:
+            return None
+            # xcl = lmpc.SS[-1][:len(xcl)]
+            # ucl = lmpc.uSS[-1][:len(ucl)]
+            # ut = lmpc.uSS[-1][len(ucl)]
+            # xt = lmpc.SS[-1][len(xcl)]
 
         # Apply optimal input to the system
         ucl.append(ut)

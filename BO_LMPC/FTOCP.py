@@ -87,10 +87,11 @@ class FTOCP(object):
             problem.solve(verbose=verbose, solver=MOSEK)  # I find that ECOS is better please use it when solving QPs 3q
         else:
             problem.solve(verbose=verbose)
-
-        # Store the open-loop predicted trajectory
         self.xPred = x.value
         self.uPred = u.value
+        # Store the open-loop predicted trajectory
+
+
 
     def model(self, x, u):
         # Compute state evolution

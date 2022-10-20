@@ -57,6 +57,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
+    noise_var = 0
     while np.dot(xt, xt) > 10 ** (-6):
         xt = xcl_feasible[time]  # Read measurements
 
@@ -107,7 +108,7 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
-    model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5, normalize_y=False)
+
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -144,7 +145,7 @@ def main():
             #     train_x = train_x[-100:, :]
             #     train_y = train_y[-100:, :]
             # model = gp.GaussianProcess(kernel, 0.001)
-
+            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
             # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
@@ -202,7 +203,7 @@ def main():
     pickle.dump(lmpc, filehandler)
 
 
-def iters_once(x0, lmpc, Ts, params, res=False):
+def iters_once(x0, lmpc, Ts, params, res=False, noise_var=1e-5):
     # for it in range(0, totalIterations):
     # Set initial condition at each iteration
     xcl = [x0]
@@ -222,7 +223,7 @@ def iters_once(x0, lmpc, Ts, params, res=False):
         # Apply optimal input to the system
         ucl.append(ut)
         z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl.append(z[1])
+        xcl.append(z[1] + np.random.rand(4) * noise_var)
         # xcl.append(lmpc.ftocp.model(xt, ut))
         time += 1
 

@@ -81,11 +81,13 @@ class FTOCP(object):
 
         # Solve the Finite Time Optimal Control Problem
         problem = Problem(Minimize(cost), constr)
-        if CVX:
-            problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs
-        else:
-            problem.solve(verbose=verbose)
-
+        try:
+            if CVX:
+                problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs
+            else:
+                problem.solve(verbose=verbose)
+        except cvxpy.error.SolverError:
+            print('solver error')
         # Store the open-loop predicted trajectory
         self.xPred = x.value
         self.uPred = u.value

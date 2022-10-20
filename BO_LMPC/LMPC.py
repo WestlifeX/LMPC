@@ -28,6 +28,8 @@ class LMPC(object):
         self.Q_true = np.eye(4) * 10
         self.Qfun_true = []
 
+        self.last_SS = []
+        self.last_Qfun = []
     def theta_update(self, theta):
         # theta0, theta1 = theta
         self.ftocp.Q = 10 * np.eye(4) * np.diag(theta)
@@ -77,23 +79,26 @@ class LMPC(object):
         # Finally flip the cost to have correct order
         return np.flip(np.array(cost, dtype=object)).tolist()
 
-    def solve(self, xt, verbose=False):
-
+    def solve(self, xt, verbose=False, SS=None, Qfun=None):
+        if SS is None:
+            SS = self.SS
+        if Qfun is None:
+            Qfun = self.Qfun
         # Build SS and cost matrices used in the ftocp
         # NOTE: it is possible to use a subset of the stored data to reduce computational complexity while having all guarantees on safety and performance improvement
         SS_vector = np.squeeze(
-            np.array(list(itertools.chain.from_iterable(self.SS)), dtype=object)).T  # From a 3D list to a 2D array
-        Qfun_vector = list(itertools.chain.from_iterable(self.Qfun))
+            np.array(list(itertools.chain.from_iterable(SS)), dtype=object)).T  # From a 3D list to a 2D array
+        Qfun_vector = list(itertools.chain.from_iterable(Qfun))
         Qfun_vector = np.array(Qfun_vector, dtype=object)
         Qfun_vector = np.expand_dims(Qfun_vector, 0)
         # Qfun_vector = np.expand_dims(np.array(list(itertools.chain.from_iterable(self.Qfun))),
         # 0)  # From a 2D list to a 1D array
 
         # Solve the FTOCP.
-        try:
-            self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
-        except cvxpy.error.SolverError:
-            print('solver error')
+        # try:
+        self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
+        # except cvxpy.error.SolverError:
+        #     print('solver error')
 
         # Update predicted trajectory
         self.xPred = self.ftocp.xPred

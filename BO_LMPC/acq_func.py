@@ -35,7 +35,7 @@ def opt_acquision(model, bounds, beta,
             res = minimize(ucb,
                            x0=starting_point.reshape(1, -1),
                            method='L-BFGS-B',
-                           args=(model, beta),
+                           args=(model, beta, ts),
                            bounds=bounds)
 
             if res.fun < best_value:
@@ -70,9 +70,12 @@ def acquisition(Xsamples, model, beta, ts=True, dt=None):
         probs = - (mu + beta * std.reshape(-1, 1))
     return probs
 
-def ucb(x, model, beta):
+def ucb(x, model, beta, ts):
     # with torch.no_grad():
     x = x.reshape(1, -1)
-        # x = torch.tensor(x, dtype=torch.float32)
-    # return -(mu + beta * std(-1, 1))
-    return model.predict(x, return_std=True)[0] - beta * model.predict(x, return_std=True)[1]
+    if ts:
+        x = torch.tensor(x, dtype=torch.float32)
+        # return -(mu + beta * std(-1, 1))
+        return (model.predict(x, return_std=True)[0] - beta * model.predict(x, return_std=True)[1]).detach().numpy()
+    else:
+        return model.predict(x, return_std=True)[0] - beta * model.predict(x, return_std=True)[1]
