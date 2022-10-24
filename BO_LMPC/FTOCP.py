@@ -43,11 +43,11 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
-            # constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i],
-            #            u[:, i] >= -5.0,
-            #            u[:, i] <= 5.0,
-            #            x[:, i] >= -15.0,
-            #            x[:, i] <= 15.0, ]
+            constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i],
+                       u[:, i] >= -5.0,
+                       u[:, i] <= 5.0,
+                       x[:, i] >= -15.0,
+                       x[:, i] <= 15.0, ]
             constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
         # Cost Function
         cost = 0

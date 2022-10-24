@@ -107,6 +107,8 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
+    tau = 0
+    mu = 1e-8
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -114,8 +116,7 @@ def main():
         else:
             start = tim.time()
             # bayes opt
-            tau = 0
-            mu = 1e-10
+
             theta_bounds[:, 0] = last_params / 2
             theta_bounds[:, 1] = last_params * 2
             theta_bounds = np.clip(theta_bounds, 0, 1000)
@@ -126,26 +127,24 @@ def main():
                 train_y = []
                 for i in tqdm(range(n_inital_points)):
                     lmpc.theta_update(train_x[i].tolist())
-                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                    train_obj, _, _ = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
                     train_y.append(train_obj)
                 train_y = np.array(train_y).reshape(-1, 1)
             else:
                 train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                             size=(n_inital_points, theta_bounds.shape[0]))))
                 y_t = []
-                bias = 0
                 for i in tqdm(range(n_inital_points)):
                     lmpc.theta_update(train_x[i-n_inital_points].tolist())
-                    train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 新数据
-                    source_obj = iters_once(x0, lmpc, Ts, params, res=True, last=True)  # 原数据
-                    bias += (train_obj - source_obj) ** 2
+                    train_obj, _, _ = iters_once(x0, lmpc, Ts, params, res=True)  # 新数据
+                    # source_obj, _, _ = iters_once(x0, lmpc, Ts, params, res=True, last=True)  # 原数据
+                    # bias = (train_obj - source_obj) ** 2
+                    # mu += bias / 2
+                    # tau += 1 / 2
                     y_t.append(train_obj)
                 y_t = np.array(y_t).reshape(-1, 1)
                 # y_t = np.squeeze(y_t, axis=1)
                 train_y = np.vstack([train_y, y_t])
-
-                mu += bias / 2
-                tau += 1 / 2
 
             sigma_s = mu / (1 + tau)
             alpha = np.ones(train_x.shape[0]) * 1e-10
@@ -154,49 +153,50 @@ def main():
             #     train_x = train_x[-100:, :]
             #     train_y = train_y[-100:, :]
             # model = gp.GaussianProcess(kernel, 0.001)
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5, normalize_y=False)
+            model = GaussianProcessRegressor(kernel=kernels.RBF(), alpha=alpha, n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
             # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
             print('bayes opt for {} iteration'.format(it + 1))
             for idx in tqdm(range(n_iters)):
                 beta = 2 * np.log((idx+1)**2 * 2 * np.pi**2 / (3 * 0.05)) + \
-                       2 * n_params * np.log((idx+1)**2 * n_params * 1 * 1000 * np.sqrt(np.log(4 * n_params * 1 / 0.05)))
+                       2 * n_params * np.log((idx+1)**2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 0.1 / 0.05)))
                 beta = np.sqrt(beta)
+                # beta = 5
                 next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
                 # 避免出现重复数据影响GP的拟合
                 if np.any(np.abs(next_sample - train_x) <= thresh):
                     next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
                 lmpc.theta_update(next_sample.tolist())
-                new_res = iters_once(x0, lmpc, Ts, params, res=True)
+                new_res, _, _ = iters_once(x0, lmpc, Ts, params, res=True)
                 train_y = np.vstack((train_y, new_res))
                 train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
                 if it != 0:
-                    bias = 0
-                    source_obj = iters_once(x0, lmpc, Ts, params, res=True, last=True)  # 原数据
-                    bias += (new_res - source_obj) ** 2
-                    mu += bias / 2
-                    tau += 1 / 2
+                    # bias = 0
+                    # source_obj, _, _ = iters_once(x0, lmpc, Ts, params, res=True, last=True)  # 原数据
+                    # bias = (new_res - source_obj) ** 2
+                    # mu += bias / 2
+                    # tau += 1 / 2
                     sigma_s = mu / (1 + tau)
                     alpha = np.ones(train_x.shape[0]) * 1e-10
                     alpha[:-(n_inital_points+idx+1)] = sigma_s
-                model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5,
+                model = GaussianProcessRegressor(kernel=kernels.RBF(), alpha=alpha, n_restarts_optimizer=5,
                                                  normalize_y=False)
                 model.fit(train_x, train_y)
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
             # res = iters_once(x0, lmpc, Ts, params)
-            lmpc.theta_update([1, 1, 1, 1])
-            print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
+            # lmpc.theta_update([1, 1, 1, 1])
+            # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
-            # lmpc.theta_update(last_params.tolist()[0])
-            # result = iters_once(x0, lmpc, Ts, params, res=True)
-            # if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):], axis=0)[0]:
-            #     iters_once(x0, lmpc, Ts, params)
-            # else:
-            theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)]
-            lmpc.theta_update(theta.tolist()[0])
-            iters_once(x0, lmpc, Ts, params)
-            last_params = copy.deepcopy(theta.reshape(1, -1))
+            lmpc.theta_update(last_params.tolist()[0])
+            result, xcl, ucl = iters_once(x0, lmpc, Ts, params, res=True)
+            if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):], axis=0)[0]:
+                lmpc.addTrajectory(xcl, ucl)
+            else:
+                theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)]
+                lmpc.theta_update(theta.tolist()[0])
+                iters_once(x0, lmpc, Ts, params)
+                last_params = copy.deepcopy(theta.reshape(1, -1))
             print('optimized theta: ', last_params)
             end = tim.time()
             print('consumed time: ', end-start)
@@ -257,7 +257,7 @@ def iters_once(x0, lmpc, Ts, params, last=False, res=False):
     if not res:
         lmpc.addTrajectory(xcl, ucl)
 
-    return lmpc.computeCost(xcl, ucl, np.eye(4) * 10)[0]  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
+    return lmpc.computeCost(xcl, ucl, np.eye(4) * 10)[0], xcl, ucl  # 这里对Q参数赋值，计算的是真实轨迹下真实回报，而不是
 
 def iters_once_(x0, lmpc, Ts, params, res=False):
     # for it in range(0, totalIterations):

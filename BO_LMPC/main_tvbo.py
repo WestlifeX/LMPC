@@ -107,7 +107,7 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
-    model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5, normalize_y=False)
+    model = GaussianProcessRegressor(kernel=kernels.Matern(nu=3.5), n_restarts_optimizer=5, normalize_y=False)
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -162,8 +162,8 @@ def main():
                 model.fit(train_x, train_y)
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
             # res = iters_once(x0, lmpc, Ts, params)
-            lmpc.theta_update([1, 1, 1, 1])
-            print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
+            # lmpc.theta_update([1, 1, 1, 1])
+            # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
             lmpc.theta_update(last_params.tolist()[0])
             result = iters_once(x0, lmpc, Ts, params, res=True)

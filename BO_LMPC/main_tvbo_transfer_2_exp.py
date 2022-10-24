@@ -107,10 +107,10 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
-    mu_init = 1e-10
-    tau_init = 0
-    tau_s = []
-    mu_s = []
+    mu_init = 1
+    tau_init = 1e10-1
+    tau_s = [tau_init]
+    mu_s = [mu_init]
     for it in range(0, totalIterations):
         if not bayes:
             # pass
@@ -132,6 +132,8 @@ def main():
                     train_y.append(train_obj)
                 train_y = np.array(train_y).reshape(-1, 1)
             else:
+                mu_s.append(mu_init)
+                tau_s.append(tau_init)
                 train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                             size=(n_inital_points, theta_bounds.shape[0]))))
                 y_t = []
@@ -140,34 +142,36 @@ def main():
                     lmpc.theta_update(train_x[i-n_inital_points].tolist())
                     train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 新数据
                     source_obj = iters_once(x0, lmpc, Ts, params, res=True, SS=lmpc.SS[:-1], Qfun=lmpc.Qfun[:-1])  # 原数据
-                    mu_s.append(mu_init)
-                    tau_s.append(tau_init)
+
                     bias += (train_obj - source_obj) ** 2
-                    mu_s = [m + bias / 2 for m in mu_s]
-                    tau_s[-(i+1):] = [t + 1 / 2 for t in tau_s[-(i+1):]]
+                    mu_s[:-1] = [m + bias/2 for m in mu_s[:-1]]
+                    tau_s[-2] += 1 / 2
+                    # mu_s = [m + bias / 2 for m in mu_s]
+                    # tau_s[-(i+1):] = [t + 1 / 2 for t in tau_s[-(i+1):]]
                     y_t.append(train_obj)
                 y_t = np.array(y_t).reshape(-1, 1)
                 # y_t = np.squeeze(y_t, axis=1)
                 train_y = np.vstack([train_y, y_t])
 
-            # sigma_s = mu / (1 + tau)
             alpha = np.ones(train_x.shape[0]) * 1e-10
-            for i in range(train_x.shape[0]-n_inital_points):
-                alpha[i] = mu_s[i] / (1 + tau_s[i])
+            for i in range(len(mu_s)-1):
+                alpha[i*(n_inital_points+n_iters):(i+1)*(n_inital_points+n_iters)] = mu_s[i] / (1 + tau_s[i])
+            # alpha[-n_inital_points:] = mu_s[-1] / (1 + tau_s[-1])
             # if train_x.shape[0] > 100:
             #     train_x = train_x[-100:, :]
             #     train_y = train_y[-100:, :]
             # model = gp.GaussianProcess(kernel, 0.001)
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5, normalize_y=False)
+            model = GaussianProcessRegressor(kernel=kernels.RBF(), alpha=alpha, n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
             # model.fit(train_x, train_y)
             # model, mll = get_model(train_x, train_y)
             print('bayes opt for {} iteration'.format(it + 1))
             for idx in tqdm(range(n_iters)):
                 beta = 2 * np.log((idx+1)**2 * 2 * np.pi**2 / (3 * 0.05)) + \
-                       2 * n_params * np.log((idx+1)**2 * n_params * 1 * 1000 * np.sqrt(np.log(4 * n_params * 1 / 0.05)))
+                       2 * n_params * np.log((idx+1)**2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 0.1 / 0.05)))
                 beta = np.sqrt(beta)
-                next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
+                # beta = 5
+                next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False, prior=last_params)
                 # 避免出现重复数据影响GP的拟合
                 if np.any(np.abs(next_sample - train_x) <= thresh):
                     next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
@@ -177,15 +181,20 @@ def main():
                 train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
                 if it != 0:
                     source_obj = iters_once(x0, lmpc, Ts, params, res=True, SS=lmpc.SS[:-1], Qfun=lmpc.Qfun[:-1])  # 原数据
-                    bias = (new_res - source_obj) ** 2
-                    mu_s.append(mu_init)
-                    tau_s.append(tau_init)
-                    mu_s = [m + bias / 2 for m in mu_s]
-                    tau_s[-(idx+n_inital_points+1):] = [t + 1 / 2 for t in tau_s[-(idx+n_inital_points+1):]]
+                    bias += (new_res - source_obj) ** 2
+                    mu_s[:-1] = [m + bias/2 for m in mu_s[:-1]]
+                    tau_s[-2] += 1 / 2
+                    # mu_s = [m + bias / 2 for m in mu_s]
+                    # tau_s[-(idx+n_inital_points+1):] = [t + 1 / 2 for t in tau_s[-(idx+n_inital_points+1):]]
                     alpha = np.ones(train_x.shape[0]) * 1e-10
-                    for i in range(train_x.shape[0] - n_inital_points - idx - 1):
-                        alpha[i] = mu_s[i] / (1 + tau_s[i])
-                model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5,
+                    for i in range(len(mu_s) - 1):
+                        alpha[i * (n_inital_points + n_iters):(i + 1) * (n_inital_points + n_iters)] = mu_s[i] / (
+                                    1 + tau_s[i])
+                    # alpha[-(n_inital_points+idx+1):] = mu_s[-1] / (1 + tau_s[-1])
+                else:
+                    alpha = np.ones(train_x.shape[0]) * 1e-10
+
+                model = GaussianProcessRegressor(kernel=kernels.RBF(), alpha=alpha, n_restarts_optimizer=5,
                                                  normalize_y=False)
                 model.fit(train_x, train_y)
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
