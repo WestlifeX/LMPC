@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from FTOCP import FTOCP
+from NLP_solve import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
@@ -24,7 +24,7 @@ import kernel as kn
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
-
+import time as ti
 def main():
     np.random.seed(1)
     Ts = 0.1
@@ -48,7 +48,7 @@ def main():
     # 修改了初值的位置，因为x离原点太远了，把cart调回原点需要太多步了（x的初值应该是可以改的，因为线性化只针对phi）
     # 增大了采样时间0.02 --> 0.1，同上，采样时间越小需要的步数就越多
     # 增大了Q（原来是0.01*Q），Q大一点应该可以快点收敛吧
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -76,7 +76,8 @@ def main():
         ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -91,10 +92,10 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 5  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
-    bayes = True
+    bayes = False
     totalIterations = 200  # Number of iterations to perform
     n_params = 4
     theta_bounds = np.array([[0.1, 1000]] * n_params)
@@ -109,7 +110,9 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
+    times = []
     for it in range(0, totalIterations):
+        start = ti.time()
         if not bayes:
             # pass
             iters_once(x0, lmpc, Ts, params)
@@ -193,14 +196,18 @@ def main():
 
             # mean_module = model.mean_module
             # covar_module = model.covar_module
+        end = ti.time()
+        print('time: ', end - start)
+        times.append(end-start)
         returns.append(lmpc.Qfun_true[it][0])
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
+
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R)
+    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
@@ -248,9 +255,11 @@ def iters_once(x0, lmpc, Ts, params, res=False):
 
         # Apply optimal input to the system
         ucl.append(ut)
-        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl.append(z[1])
-        # xcl.append(lmpc.ftocp.model(xt, ut))
+        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        # xcl.append(z[1])
+        xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        # xcl.append(np.array(lmpc.ftocp.model(xt, ut)) + np.clip(np.random.randn(4) * 1e-3, -0.1, 0.1))
+        # xcl.append(np.array(lmpc.ftocp.model(xt, ut)))
         time += 1
 
     # Add trajectory to update the safe set and value function
