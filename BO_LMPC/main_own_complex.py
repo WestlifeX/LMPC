@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from NLP_solve import FTOCP
+from NLP_continuous_complex import FTOCP
 # from FTOCP import FTOCP
 from LMPC import LMPC
 import pdb
@@ -13,15 +13,9 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
-from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
+from hypersonic import hypersonic, linear_model
 from bayes_opt_mine import get_model, step
 
-from botorch.optim import optimize_acqf
-from botorch.acquisition import UpperConfidenceBound
-from gpytorch.means import ConstantMean
-from gpytorch.kernels import MaternKernel
-import gaussian_process as gp
-import kernel as kn
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
@@ -30,26 +24,22 @@ def main():
     np.random.seed(1)
     Ts = 0.1
     params = get_params()
-    linear_model = get_linearized_model(params, Ts)
+    l_model = linear_model(Ts=Ts)
     # Define system dynamics and cost
-    (Ad, Bd, A, B) = linear_model
+    (Ad, Bd) = l_model
+    C = np.array([[1, 0, 0, 0, 0],
+                  [0, 0, 1, 0, 0]])
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
-    Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
-    R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
+    Q = np.eye(2) * 10  # np.eye(2) 非线性下真实的Q
+    R = np.eye(2)  # np.array([[1]]) 非线性下真实的R
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.25, -0.01]
-
+    x0 = [15060, 0, 110000, 0.0312, 0]
     # Initialize FTOCP object
     N_feas = 10
-    # 产生初始可行解的时候应该Q、R随便
-    # 求解MPC应该也是用线性模型，因为MPC是为了求解u，而求u应该用不准确的模型，否则就没有误差了，但是得到u之后求下一步x用非线性的
-    # 修改了初值的位置，因为x离原点太远了，把cart调回原点需要太多步了（x的初值应该是可以改的，因为线性化只针对phi）
-    # 增大了采样时间0.02 --> 0.1，同上，采样时间越小需要的步数就越多
-    # 增大了Q（原来是0.01*Q），Q大一点应该可以快点收敛吧
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, C, Q, R, Ts)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -58,7 +48,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-6):
+    while np.dot(np.dot(C, xt), np.dot(C, xt)) > 10 ** (-6):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -66,25 +56,15 @@ def main():
         # ucl_feasible = ftocp_for_mpc.uPred.T.tolist()
 
         # Apply optimal input to the system
-        # ucl.append(ut)
-        # for i in range(len(ucl_feasible)):
-            # ut = ucl_feasible[i]
-            # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-            # xcl_feasible.append(z[1].tolist())
-            # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl_feasible.append(z[1])
-        xcl_feasible.append(ftocp_for_mpc.xPred[:, 1])
+        z = odeint(hypersonic, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl_feasible.append(z[1])
+        # xcl_feasible.append(ftocp_for_mpc.xPred[:, 1])
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
-
-    # print(np.round(np.array(xcl_feasible).T, decimals=2))
-    # print(np.round(np.array(ucl_feasible).T, decimals=2))
-    # ====================================================================================
 
     # ====================================================================================
     # Run LMPC
@@ -98,15 +78,14 @@ def main():
     lmpc = LMPC(ftocp, CVX=False)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
-    totalIterations = 200  # Number of iterations to perform
-    n_params = 4
+    totalIterations = 50  # Number of iterations to perform
+    n_params = 2
     theta_bounds = np.array([[0.1, 1000]] * n_params)
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])
     # run simulation
     # iteration loop
     print("Starting LMPC")
     returns = []
-    prior = None
     n_inital_points = 5
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
@@ -244,14 +223,11 @@ def iters_once(x0, lmpc, Ts, params, res=False):
         except cvxpy.error.SolverError:
             return None
         # Read optimal input
-        try:
-            ut = lmpc.uPred[:, 0][0]
-        except IndexError:
-            return None
+        ut = lmpc.uPred[:, 0][0]
 
         # Apply optimal input to the system
         ucl.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        # z = odeint(hypersonic, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl.append(z[1])
         xcl.append(lmpc.xPred[:, 1])
         # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])

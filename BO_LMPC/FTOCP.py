@@ -33,16 +33,6 @@ class FTOCP(object):
         self.xPred = []
         self.uPred = []
 
-        self.params = params
-        self.T1 = self.params['T1']
-        self.K = self.params['K']
-        self.mp = self.params['mass_pole']
-        self.l = self.params['length_pole']
-        self.mu_friction = self.params['friction_coef']
-        self.g = 9.81
-        self.d_ = 0.005
-        self.Jd = self.mp * (self.l / 2) ** 2 + 1 / 12 * self.mp * self.l ** 2 + 0.25 * self.mp * (self.d_ / 2) ** 2
-
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
 			- x0: initial condition
@@ -63,17 +53,6 @@ class FTOCP(object):
             #            x[:, i] >= -20.0,
             #            x[:, i] <= 20.0, ]
             constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
-            # constr += [x[0, i + 1] == x[0, i] + 0.1 * x[1, i], ]
-            # constr += [x[1, i + 1] == x[1, i] + 0.1 * (1 / self.T1 * (self.K * u[:, i] - x[1, i])), ]
-            # constr += [x[2, i + 1] == x[2, i] + 0.1 * x[3, i], ]
-            # constr += [x[3, i + 1] == x[3, i] + 0.1 * (0.5 * self.mp * self.g * self.l / self.Jd * np.sin(x[2, i])
-            #                                            - 0.5 * self.mp * self.l / self.Jd * np.cos(x[2, i]) * 1 / self.T1 * (
-            #                                                        self.K * u[:, i] - x[1, i])
-            #                                            - self.mu_friction / self.Jd * x[3, i]), ]
-            # constr += [x[3, i + 1] == x[3, i] + 0.1 * (0.5 * self.mp * self.g * self.l / self.Jd * x[2, i]
-            #                                            - 0.5 * self.mp * self.l / self.Jd * 1 / self.T1 * (
-            #                                                    self.K * u[:, i] - x[1, i])
-            #                                            - self.mu_friction / self.Jd * x[3, i]), ]
             # constr += [x[:, i + 1] == odeint(inv_pendulum, x[:, i], [0, 0.1], args=(u[:, i], params))[1]]
         # Cost Function
         cost = 0
@@ -117,6 +96,6 @@ class FTOCP(object):
         self.uPred = u.value
         # Store the open-loop predicted trajectory
 
-    # def model(self, x, u):
-    #     # Compute state evolution
-    #     return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()
+    def model(self, x, u):
+        #     # Compute state evolution
+        return (np.dot(self.A, x) + np.squeeze(np.dot(self.B, u))).tolist()

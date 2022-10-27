@@ -26,7 +26,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 
 def main():
-    np.random.seed(1)
+    np.random.seed(3)
     Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
@@ -57,27 +57,20 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-5):
+    while np.dot(xt, xt) > 10 ** (-6):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
 
         # ucl_feasible = ftocp_for_mpc.uPred.T.tolist()
 
-        # Apply optimal input to the system
-        # ucl.append(ut)
-        # for i in range(len(ucl_feasible)):
-            # ut = ucl_feasible[i]
-            # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-            # xcl_feasible.append(z[1].tolist())
-            # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
-        xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -109,7 +102,7 @@ def main():
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
     tau = 0
-    mu = 0.1
+    mu = 1e-8
     times = []
     for it in range(0, totalIterations):
         start = tim.time()
@@ -262,9 +255,9 @@ def iters_once(x0, lmpc, Ts, params, last=False, res=False):
 
         # Apply optimal input to the system
         ucl.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl.append(z[1])
-        xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl.append(z[1])
+        # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         # xcl.append(lmpc.ftocp.model(xt, ut))
         time += 1
 

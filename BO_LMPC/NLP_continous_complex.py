@@ -24,6 +24,7 @@ class FTOCP(object):
         # System Dynamics (x_{k+1} = A x_k + Bu_k)
         self.A = A
         self.B = B
+        self.C = C
         self.n = A.shape[1]
         self.d = B.shape[1]
 
@@ -35,31 +36,47 @@ class FTOCP(object):
         self.xPred = []
         self.uPred = []
 
-        self.params = params
-        self.T1 = self.params['T1']
-        self.K = self.params['K']
-        self.mp = self.params['mass_pole']
-        self.l = self.params['length_pole']
-        self.mu_friction = self.params['friction_coef']
-        self.g = 9.81
-        self.d_ = 0.005
-        self.Jd = self.mp * (self.l / 2) ** 2 + 1 / 12 * self.mp * self.l ** 2 + 0.25 * self.mp * (self.d_ / 2) ** 2
+        m = 9375
+        Iyy = 7e6
+        S = 3603
+        c_ = 80
+        ce = 0.0292
+        RE = 20902230.972
+        mu = 6.6743e-11 * 3.28083989501 ** 3 * 14.59
 
-        x1 = MX.sym('x')
-        x2 = MX.sym('dx')
-        x3 = MX.sym('theta')
-        x4 = MX.sym('dtheta')
-        x = vertcat(x1, x2, x3, x4)
-        u = MX.sym('u')
-        ode = [x2,
-               (1 / self.T1 * (self.K * u - x2)),
-               x4,
-               0.5 * self.mp * self.g * self.l / self.Jd * np.sin(x3)
-               - 0.5 * self.mp * self.l / self.Jd * np.cos(x3) * 1 / self.T1 * (self.K * u - x2)
-               - self.mu_friction / self.Jd * x4
+
+        V = MX.sym('V')
+        gamma = MX.sym('gamma')
+        h = MX.sym('h')
+        alpha = MX.sym('alpha')
+        q = MX.sym('q')
+        x = vertcat(V, gamma, h, alpha, q)
+        beta = MX.sym('beta')
+        delta_e = MX.sym('delta_e')
+        u = vertcat(beta, delta_e)
+
+        CL = 0.6203 * alpha
+        CD = 0.6450 * alpha ** 2 + 0.0043378 * alpha + 0.003772
+        CT = 0.02576 * beta if beta < 1 else 0.0224 + 0.00336 * beta
+        CM_alpha = -0.035 * alpha ** 2 + 0.036617 * alpha + 5.3261e-6
+        CM_delta_e = ce * (delta_e - alpha)
+        CM_q = c_ / (2 * V) * q * (-6.796 * alpha ** 2 + 0.3015 * alpha - 0.2289)
+
+        rho = 0.0023769 * np.exp(-h / (10.4 * 3280.83989501))
+        L = 0.5 * rho * V ** 2 * S * CL
+        D = 0.5 * rho * V ** 2 * S * CD
+        T = 0.5 * rho * V ** 2 * S * CT
+        Myy = 0.5 * rho * V ** 2 * S * c_ * (CM_alpha + CM_delta_e + CM_q)
+        r = h + RE
+
+        ode = [(T * np.cos(alpha) - D) / m - mu * np.sin(gamma) / (r ** 2),
+               (L + T * np.sin(alpha)) / (m * V) - (mu - V**2 * r) * np.cos(gamma) / (V * r**2),
+               V * np.sin(gamma),
+               q - dgamma,
+               Myy - Iyy
                ]
         f = Function('f', [x, u], [vcat(ode)], ['state', 'input'], ['ode'])
-        intg_options = {'tf': 0.1}
+        intg_options = {'tf': 0.1}  # 记得跟着改
         dae = {'x': x, 'p': u, 'ode': f(x, u)}
         intg = integrator('intg', 'rk', dae, intg_options)
         res = intg(x0=x, p=u)
@@ -93,8 +110,8 @@ class FTOCP(object):
                                       X[self.n * (i + 1):self.n * (i + 2)] - self.F(
                                           X[self.n * i:self.n * (i + 1)],
                                           U[self.d * i:self.d * (i + 1)]))
-                cost = cost + mtimes(mtimes(X[self.n * i:self.n * (i + 1)].T,
-                       self.Q), X[self.n * i:self.n * (i + 1)]) + \
+                cost = cost + mtimes(mtimes(mtimes(X[self.n * i:self.n * (i + 1)].T, self.C.T),
+                       self.Q), mtimes(self.C, X[self.n * i:self.n * (i + 1)])) + \
                     mtimes(mtimes(U[self.d * i:self.d * (i + 1)].T, self.R), U[self.d * i:self.d * (i + 1)])
 
             for i in range(self.n):
@@ -105,14 +122,13 @@ class FTOCP(object):
             constraints = vertcat(constraints, lambVar - 0)
             # cost = cost + Qfun[0][j]
             # for idx in range(SS.shape[1]):
-            is_bool = [False] * (self.n * (self.N + 1) + self.d * self.N) + [True] * SS.shape[1]
             cost = cost + dot(Qfun[0], lambVar)
-            options = {"verbose": True, "ipopt.print_level": 0, "print_time": 0,
+            options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-10,
+                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
                        "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(X, U, lambVar), 'f': cost, 'g': constraints}
-            solver = nlpsol('solver', 'bonmin', nlp, {"verbose": False, "discrete": is_bool})
+            solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [0] * SS.shape[1]
             ubg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [1] * SS.shape[1]
             sol = solver(lbg=lbg, ubg=ubg)
@@ -136,15 +152,13 @@ class FTOCP(object):
                 constraints = vertcat(constraints,
                                       X[self.n * (i + 1):self.n * (i + 2)] - self.F(X[self.n * i:self.n * (i + 1)],
                                                                             U[self.d * i:self.d * (i + 1)]))
-                cost = cost + self.Q[0, 0] * X[self.n * i] ** 2 + \
-                       self.Q[1, 1] * X[self.n * i + 1] ** 2 + \
-                       self.Q[2, 2] * X[self.n * i + 2] ** 2 + \
-                       self.Q[3, 3] * X[self.n * i + 3] ** 2 + \
-                       self.R[0, 0] * U[self.d * i] ** 2
-            cost = cost + self.Q[0, 0] * X[self.n * self.N] ** 2 + \
-                   self.Q[1, 1] * X[self.n * self.N + 1] ** 2 + \
-                   self.Q[2, 2] * X[self.n * self.N + 2] ** 2 + \
-                   self.Q[3, 3] * X[self.n * self.N + 3] ** 2
+                cost = cost + mtimes(mtimes(X[self.n * i:self.n * (i + 1)].T,
+                                            self.Q), X[self.n * i:self.n * (i + 1)]) + \
+                       mtimes(mtimes(U[self.d * i:self.d * (i + 1)].T, self.R), U[self.d * i:self.d * (i + 1)])
+
+            cost = cost + mtimes(mtimes(X[self.n * self.N:self.n * (self.N + 1)].T,
+                                            self.Q), X[self.n * self.N:self.n * (self.N + 1)]) + \
+            mtimes(mtimes(U[self.d * self.N:self.d * (self.N + 1)].T, self.R), U[self.d * self.N:self.d * (self.N + 1)])
 
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",

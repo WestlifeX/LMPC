@@ -17,7 +17,7 @@ class FTOCP(object):
 
 	"""
 
-    def __init__(self, N, A, B, Q, R, params):
+    def __init__(self, N, A, B, Q, R, Ts):
         # Define variables
         self.N = N  # Horizon Length
 
@@ -59,7 +59,7 @@ class FTOCP(object):
                - self.mu_friction / self.Jd * x4
                ]
         f = Function('f', [x, u], [vcat(ode)], ['state', 'input'], ['ode'])
-        intg_options = {'tf': 0.1}
+        intg_options = {'tf': Ts}
         dae = {'x': x, 'p': u, 'ode': f(x, u)}
         intg = integrator('intg', 'rk', dae, intg_options)
         res = intg(x0=x, p=u)
@@ -105,14 +105,13 @@ class FTOCP(object):
             constraints = vertcat(constraints, lambVar - 0)
             # cost = cost + Qfun[0][j]
             # for idx in range(SS.shape[1]):
-            is_bool = [False] * (self.n * (self.N + 1) + self.d * self.N) + [True] * SS.shape[1]
             cost = cost + dot(Qfun[0], lambVar)
-            options = {"verbose": True, "ipopt.print_level": 0, "print_time": 0,
+            options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-10,
+                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
                        "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(X, U, lambVar), 'f': cost, 'g': constraints}
-            solver = nlpsol('solver', 'bonmin', nlp, {"verbose": False, "discrete": is_bool})
+            solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [0] * SS.shape[1]
             ubg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [1] * SS.shape[1]
             sol = solver(lbg=lbg, ubg=ubg)
@@ -136,15 +135,13 @@ class FTOCP(object):
                 constraints = vertcat(constraints,
                                       X[self.n * (i + 1):self.n * (i + 2)] - self.F(X[self.n * i:self.n * (i + 1)],
                                                                             U[self.d * i:self.d * (i + 1)]))
-                cost = cost + self.Q[0, 0] * X[self.n * i] ** 2 + \
-                       self.Q[1, 1] * X[self.n * i + 1] ** 2 + \
-                       self.Q[2, 2] * X[self.n * i + 2] ** 2 + \
-                       self.Q[3, 3] * X[self.n * i + 3] ** 2 + \
-                       self.R[0, 0] * U[self.d * i] ** 2
-            cost = cost + self.Q[0, 0] * X[self.n * self.N] ** 2 + \
-                   self.Q[1, 1] * X[self.n * self.N + 1] ** 2 + \
-                   self.Q[2, 2] * X[self.n * self.N + 2] ** 2 + \
-                   self.Q[3, 3] * X[self.n * self.N + 3] ** 2
+                cost = cost + mtimes(mtimes(X[self.n * i:self.n * (i + 1)].T,
+                                            self.Q), X[self.n * i:self.n * (i + 1)]) + \
+                       mtimes(mtimes(U[self.d * i:self.d * (i + 1)].T, self.R), U[self.d * i:self.d * (i + 1)])
+
+            cost = cost + mtimes(mtimes(X[self.n * self.N:self.n * (self.N + 1)].T,
+                                            self.Q), X[self.n * self.N:self.n * (self.N + 1)]) + \
+            mtimes(mtimes(U[self.d * self.N:self.d * (self.N + 1)].T, self.R), U[self.d * self.N:self.d * (self.N + 1)])
 
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",

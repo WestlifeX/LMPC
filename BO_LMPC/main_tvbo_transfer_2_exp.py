@@ -27,7 +27,7 @@ import time as tim
 
 
 def main():
-    np.random.seed(1)
+    np.random.seed(4)
     Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
@@ -68,16 +68,12 @@ def main():
         # Apply optimal input to the system
         # ucl.append(ut)
         # for i in range(len(ucl_feasible)):
-        # ut = ucl_feasible[i]
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl_feasible.append(z[1].tolist())
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        # xcl_feasible.append(z[1])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
 

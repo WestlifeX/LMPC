@@ -13,7 +13,7 @@ file_names = os.listdir('./results/')
 # tvbo_transfer_fg_1: 每段数据的权重大小是不一样的
 data = []
 for name in file_names:
-    if name != 'tvbo.md' and name != 'tvbo_3.md' \
+    if name != 'linear.md' and name != 'tvbo.md' and name != 'tvbo_3.md' \
             and name != 'tvbo_transfer_1.md':
         with open('./results/' + name) as f:
             lines = f.readlines()
