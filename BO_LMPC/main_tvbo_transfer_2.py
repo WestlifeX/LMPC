@@ -27,8 +27,8 @@ import time as tim
 
 
 def main():
-    np.random.seed(1)
-    Ts = 0.1
+    np.random.seed(4)
+    Ts = 0.05
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
@@ -40,7 +40,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.25, -0.01]
+    x0 = [1, 0, 0.25, -0.01]  # optimal 306.51
 
     # Initialize FTOCP object
     N_feas = 10
@@ -68,17 +68,13 @@ def main():
         # Apply optimal input to the system
         # ucl.append(ut)
         # for i in range(len(ucl_feasible)):
-        # ut = ucl_feasible[i]
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl_feasible.append(z[1].tolist())
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
-        xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -103,7 +99,7 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-    prior = None
+
     n_inital_points = 1
     n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
@@ -182,7 +178,7 @@ def main():
             for idx in tqdm(range(n_iters)):
                 beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.05)) + \
                        2 * n_params * np.log(
-                    (idx + 1) ** 2 * n_params * 1e-3 * 1000 * np.sqrt(np.log(4 * n_params * 0.1 / 0.05)))
+                    (idx + 1) ** 2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 0.1 / 0.05)))
                 beta = np.sqrt(beta)
                 # beta = 5
                 next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False, prior=last_params)
@@ -287,11 +283,11 @@ def iters_once(x0, lmpc, Ts, params, res=False, SS=None, Qfun=None):
 
         # Apply optimal input to the system
         ucl.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl.append(z[1])
+        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl.append(z[1])
         # xcl.append(np.array(lmpc.ftocp.model(xt, ut)) + np.clip(np.random.randn(4) * 1e-3, -0.01, 0.01))
         # xcl.append(np.array(lmpc.ftocp.model(xt, ut)))
-        xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
 
     # Add trajectory to update the safe set and value function

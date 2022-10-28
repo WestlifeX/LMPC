@@ -26,7 +26,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 
 def main():
-    np.random.seed(3)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
@@ -39,7 +39,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.25, -0.01]
+    x0 = [1, 0, 0.1, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10

@@ -76,8 +76,8 @@ def main():
         ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
-        xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -104,7 +104,7 @@ def main():
     returns = []
     prior = None
     n_inital_points = 1
-    n_iters = 1
+    n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
@@ -168,7 +168,7 @@ def main():
             print('bayes opt for {} iteration'.format(it + 1))
             for idx in tqdm(range(n_iters)):
                 beta = 2 * np.log((idx+1)**2 * 2 * np.pi**2 / (3 * 0.05)) + \
-                       2 * n_params * np.log((idx+1)**2 * n_params * 1 * 1000 * np.sqrt(np.log(4 * n_params * 1 / 0.05)))
+                       2 * n_params * np.log((idx+1)**2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 0.1 / 0.05)))
                 beta = np.sqrt(beta)
                 # beta = 5
                 next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
@@ -262,9 +262,9 @@ def iters_once(x0, lmpc, Ts, params, last=False, res=False):
 
         # Apply optimal input to the system
         ucl.append(ut)
-        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        # xcl.append(z[1])
-        xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
+        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        xcl.append(z[1])
+        # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         # xcl.append(lmpc.ftocp.model(xt, ut))
         time += 1
 

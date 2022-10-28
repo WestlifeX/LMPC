@@ -27,7 +27,7 @@ import cvxpy
 import time as ti
 def main():
     np.random.seed(1)
-    Ts = 0.05
+    Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
@@ -39,8 +39,24 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [0.1, 0, 0.25, -0.01]
 
+    # simple model condition
+    # x0 = [1, 0, 0.25, -0.01]  # optimal:367.86
+    # x0 = [1, 0, 0.2, -0.01]  # optimal: 313.66
+    # x0 = [1, 0, 0.15, -0.01]  # optimal: 267.51
+    # x0 = [1, 0, 0.25, -0.05]  # optimal 364.76
+    # x0 = [1, 0, 0.3, -0.01]  # optimal: 430.65
+    # x0 = [4, 0, 0.25, -0.01]  # 3273.14
+    # x0 = [0.1, 0.1, 0.25, -0.01]  # 101.61  2.4%
+    x0 = [0.1, 0, 0.27, -0.01]  # 99.20
+    # complex model condition
+    # x0 = [1, 0, 0.25, -0.01]  # optimal 135.28
+    # x0 = [1, 0, 0.25, -0.1]  # optimal 134.88
+    # x0 = [4, 0, 0.25, -0.1]  # optimal 2299.62
+    # x0 = [4, 0, 0.25, -0.01]  # 2289.24
+    # x0 = [0.1, 0, 0.25, -0.01]  # 58.60
+    # x0 = [0.1, 0, 0.25, -0.01]  # Ts=0.05 95.92
+    # x0 = [0.5, -0.01, 0.25, -0.01]  # 60.55
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -90,7 +106,7 @@ def main():
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
-    totalIterations = 200  # Number of iterations to perform
+    totalIterations = 0  # Number of iterations to perform
     n_params = 4
     theta_bounds = np.array([[0.1, 1000]] * n_params)
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])

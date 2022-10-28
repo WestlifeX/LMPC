@@ -17,7 +17,7 @@ class FTOCP(object):
 
 	"""
 
-    def __init__(self, N, A, B, Q, R, Ts):
+    def __init__(self, N, A, B, Q, R, params):
         # Define variables
         self.N = N  # Horizon Length
 
@@ -36,14 +36,17 @@ class FTOCP(object):
         self.uPred = []
 
         self.params = params
-        self.T1 = self.params['T1']
-        self.K = self.params['K']
-        self.mp = self.params['mass_pole']
-        self.l = self.params['length_pole']
-        self.mu_friction = self.params['friction_coef']
-        self.g = 9.81
-        self.d_ = 0.005
-        self.Jd = self.mp * (self.l / 2) ** 2 + 1 / 12 * self.mp * self.l ** 2 + 0.25 * self.mp * (self.d_ / 2) ** 2
+        T1 = params['T1']
+        K = params['K']
+        m = params['mass_pole']
+        M = params['mass_cart']
+        l = params['length_pole']
+        bc = params['friction_coef_bc']
+        bp = params['friction_coef_bp']
+        mu_friction = bc
+        g = 9.81
+        d = 0.005
+        Jd = m * (l / 2) ** 2 + 1 / 12 * m * l ** 2 + 0.25 * m * (d / 2) ** 2  # 转动惯量
 
         x1 = MX.sym('x')
         x2 = MX.sym('dx')
@@ -52,14 +55,26 @@ class FTOCP(object):
         x = vertcat(x1, x2, x3, x4)
         u = MX.sym('u')
         ode = [x2,
-               (1 / self.T1 * (self.K * u - x2)),
+               (1 / T1 * (K * u - x2)),
                x4,
-               0.5 * self.mp * self.g * self.l / self.Jd * np.sin(x3)
-               - 0.5 * self.mp * self.l / self.Jd * np.cos(x3) * 1 / self.T1 * (self.K * u - x2)
-               - self.mu_friction / self.Jd * x4
+               0.5 * m * g * l / Jd * np.sin(x3)
+               - 0.5 * m * l / Jd * np.cos(x3) * 1 / T1 * (K * u - x2)
+               - mu_friction / Jd * x4
                ]
+        # ode = [x2,
+        #        1 / (M + m - (m ** 2 * l ** 2 * np.cos(x3) ** 2) / (Jd + m * l ** 2)) * \
+        #        (u - bc * x2 - m * l * x4 ** 2 * np.sin(x3) + m ** 2 * l ** 2 * g * np.sin(x3) * np.cos(x3) / (
+        #                Jd + m * l ** 2) -
+        #         m * l * bp * x4 * np.cos(x3) / (Jd + m * l ** 2)),
+        #        x4,
+        #        1 / (Jd + m * l ** 2 - (m ** 2 * l ** 2 * np.cos(x3) ** 2) / (M + m)) * \
+        #        (m * l * np.cos(x3) / (M + m) * u - bp * x4 + m * g * l * np.sin(x3) -
+        #         m ** 2 * l ** 2 * x4 ** 2 * np.sin(x3) * np.cos(x3) / (M + m) - m * l * bc * x2 * np.cos(x3) / (
+        #                 M + m))
+        #        ]
+
         f = Function('f', [x, u], [vcat(ode)], ['state', 'input'], ['ode'])
-        intg_options = {'tf': Ts}
+        intg_options = {'tf': 0.05}
         dae = {'x': x, 'p': u, 'ode': f(x, u)}
         intg = integrator('intg', 'rk', dae, intg_options)
         res = intg(x0=x, p=u)
@@ -140,8 +155,7 @@ class FTOCP(object):
                        mtimes(mtimes(U[self.d * i:self.d * (i + 1)].T, self.R), U[self.d * i:self.d * (i + 1)])
 
             cost = cost + mtimes(mtimes(X[self.n * self.N:self.n * (self.N + 1)].T,
-                                            self.Q), X[self.n * self.N:self.n * (self.N + 1)]) + \
-            mtimes(mtimes(U[self.d * self.N:self.d * (self.N + 1)].T, self.R), U[self.d * self.N:self.d * (self.N + 1)])
+                                            self.Q), X[self.n * self.N:self.n * (self.N + 1)])
 
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import expm
-from sympy import symbols, integrate
+from scipy import integrate
 # V = 15060
 # gamma = 0
 # h = 110000
@@ -14,8 +14,8 @@ S = 3603
 c_ = 80
 ce = 0.0292
 RE = 20902230.972
-mu = 6.6743e-11 * 3.28083989501 ** 3 * 14.59  # 万有引力常数
-def hypersonic(state, u):
+mu = 32.15  # 万有引力常数
+def hypersonic(state, t, u):
     V, gamma, h, alpha, q = state
     beta, delta_e = u
 
@@ -26,17 +26,17 @@ def hypersonic(state, u):
     CM_delta_e = ce * (delta_e - alpha)
     CM_q = c_ / (2 * V) * q * (-6.796*alpha**2 + 0.3015*alpha - 0.2289)
 
-    rho = 0.0023769 * np.exp(-h/(10.4 * 3280.83989501))
+    rho = 0.0023769 * np.exp(-h/24000)
     L = 0.5 * rho * V**2 * S * CL
     D = 0.5 * rho * V**2 * S * CD
     T = 0.5 * rho * V**2 * S * CT
     Myy = 0.5 * rho * V**2 * S * c_ * (CM_alpha + CM_delta_e + CM_q)
     r = h + RE
-    dV = (T * np.cos(alpha) - D) / m - mu * np.sin(gamma) / (r ** 2)
-    dgamma = (L + T * np.sin(alpha)) / (m * V) - (mu - V**2 * r) * np.cos(gamma) / (V * r**2)
+    dV = (T * np.cos(alpha) - D) / m - mu * np.sin(gamma)
+    dgamma = (L + T * np.sin(alpha)) / (m * V) - mu * np.cos(gamma) / V
     dh = V * np.sin(gamma)
     dalpha = q - dgamma
-    dq = Myy - Iyy
+    dq = Myy / Iyy
     return [dV, dgamma, dh, dalpha, dq]
 
 def linear_model(Ts):
@@ -58,13 +58,18 @@ def linear_model(Ts):
                     (-6.796*alpha**2+0.3015*alpha-0.2289)*Q*S*c_**2/(2*Iyy*V)]])
 
     Bx = np.array([[0.02576*Q*S*np.cos(alpha)/m, 0],
-                   [0.02576*Q*S*np.sin(alpha/(m*V), 0)],
+                   [0.02576*Q*S*np.sin(alpha)/(m*V), 0],
                    [0, 0],
                    [-0.02576*Q*S*np.sin(alpha)/(m*V), 0],
                    [0, Q*S*c_*ce/Iyy]])
 
     A = expm(Ax * Ts)
-    t = symbols('t')
-    B = integrate(expm(Ax * t), (t, 0, Ts)) * Bx
+    B = np.zeros_like(Ax)
+    for t in np.linspace(0, 1, 1000):
+        B = B + f(t, Ax)
+    B = B / 1000
+    B = np.dot(B, Bx)
     return A, B
 
+def f(t, A):
+    return expm(A * t)

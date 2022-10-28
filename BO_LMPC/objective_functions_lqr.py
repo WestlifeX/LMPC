@@ -20,20 +20,30 @@ def inv_pendulum(state, t, u, params):
     # get params
     T1 = params['T1']
     K = params['K']
-    mp = params['mass_pole']
+    m = params['mass_pole']
+    M = params['mass_cart']
     l = params['length_pole']
-    mu_friction = params['friction_coef']
+    bc = params['friction_coef_bc']
+    bp = params['friction_coef_bp']
+    mu_friction = bc
     g = 9.81
     d = 0.005
-    Jd = mp * (l / 2) ** 2 + 1 / 12 * mp * l ** 2 + 0.25 * mp * (d / 2) ** 2
+    Jd = m * (l / 2) ** 2 + 1 / 12 * m * l ** 2 + 0.25 * m * (d / 2) ** 2  # 转动惯量
 
     # set up odes
     xdt = dx
     xdotdt = 1 / T1 * (K * u - dx)
+    # xdotdt = 1 / (M + m - (m**2 * l**2 * np.cos(phi)**2) / (Jd + m*l**2)) * \
+    #     (u - bc*dx - m*l*dphi**2*np.sin(phi) + m**2*l**2*g*np.sin(phi)*np.cos(phi)/(Jd+m*l**2) -
+    #      m*l*bp*dphi*np.cos(phi)/(Jd+m*l**2))
+
     phidt = dphi
-    phidotdt = 0.5 * mp * g * l / Jd * np.sin(phi) \
-               - 0.5 * mp * l / Jd * np.cos(phi) * 1 / T1 * (K * u - dx) \
+    phidotdt = 0.5 * m * g * l / Jd * np.sin(phi) \
+               - 0.5 * m * l / Jd * np.cos(phi) * 1 / T1 * (K * u - dx) \
                - mu_friction / Jd * dphi
+    # phidotdt = 1 / (Jd + m*l**2 - (m**2 * l**2 * np.cos(phi)**2) / (M + m)) * \
+    #            (m*l*np.cos(phi)/(M+m)*u - bp*dphi + m*g*l*np.sin(phi) -
+    #             m**2*l**2*dphi**2*np.sin(phi)*np.cos(phi)/(M+m) - m*l*bc*dx*np.cos(phi)/(M+m))
     dxdt = [xdt, xdotdt, phidt, phidotdt]
     return dxdt
 
@@ -137,23 +147,31 @@ def get_linearized_model(params, Ts):
     # get params
     T1 = params['T1']
     K = params['K']
-    mu_friction = params['friction_coef']
-    mp = params['mass_pole']
+    bc = params['friction_coef_bc']
+    bp = params['friction_coef_bp']
+    mu_friction = bc
+    m = params['mass_pole']
+    M = params['mass_cart']
     l = params['length_pole']
     g = 9.81
     d = 0.005
 
     # state matrix
-    J = mp * (l / 2) ** 2 + 1 / 12 * mp * l ** 2 + 0.25 * mp * (d / 2) ** 2
-    mpl_J = mp * l / J
+    J = m * (l / 2) ** 2 + 1 / 12 * m * l ** 2 + 0.25 * m * (d / 2) ** 2
+    mpl_J = m * l / J
     A = np.array([[0, 1, 0, 0],
                   [0, -1 / T1, 0, 0],
                   [0, 0, 0, 1],
-                  [0, 0.5 * mpl_J / T1, 0.5 * mpl_J * g, -mu_friction / J]])
-
+                  [0, 0.5 * mpl_J / T1, 0.5 * mpl_J * g, - mu_friction / J]])
+    # v1 = (m + M) / (J * (m + M) + m*M*l**2)
+    # v2 = (J + m*l**2) / (J * (m + M) + m*M*l**2)
+    # A = np.array([[0, 1, 0, 0],
+    #               [0, -bc*v2, m**2*l**2*g*v2/(J+m*l**2), -m*l*bp*v2/(J+m*l**2)],
+    #               [0, 0, 0, 1],
+    #               [0, -m*l*bc*v1/(m+M), m*g*l*v1, -bp*v1]])
     # input matrix
     B = np.array([[0], [K / T1], [0], [-0.5 * mpl_J * K / T1]])
-
+    # B = np.array([[0], [v2], [0], [m*l*v1/(m+M)]])
     # # from scipy.signal.cont2discrete
     # Build an exponential matrix
     em_upper = np.hstack((A, B))
@@ -222,15 +240,19 @@ def simulate_system(model, K, parameter, sim_time, Ts, t, noise):
 # 获取参数表（从原来的时变改成了时不变系统）
 def get_params():
     mass_pole = 0.0804
+    mass_cart = 0.1
     length_pole = 0.147
-    friction_coef = 2.2e-3
+    bc = 2.2e-3
+    bp = 2.2e-3
     K_PT1 = 1
     T_PT1 = 1
 
     # define parameters of physical system
     obj_params = {'mass_pole': mass_pole,
+                  'mass_cart': mass_cart,
                   'length_pole': length_pole,
-                  'friction_coef': friction_coef,
+                  'friction_coef_bc': bc,
+                  'friction_coef_bp': bp,
                   'K': K_PT1,
                   'T1': T_PT1}
 

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from NLP_solve import FTOCP
+from FTOCP import FTOCP
 # from FTOCP import FTOCP
 from LMPC import LMPC
 import pdb
@@ -37,11 +37,26 @@ def main():
     # B = np.array([[0], [1]])
     Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
     R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
-
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.25, -0.01]
 
+    # simple model condition
+    # x0 = [1, 0, 0.2, -0.01] # optimal 312.01
+    # x0 = [1, 0, 0.25, -0.01]  # optimal 364.05
+    # x0 = [1, 0, 0.15, -0.01] # optimal: 266.98
+    # x0 = [1, 0, 0.25, -0.05]  # optimal 361.06
+    # x0 = [1, 0, 0.3, -0.01]  # optimal 423.11
+    # x0 = [4, 0, 0.25, -0.01]  # optimal 3285.69
+    # x0 = [0.1, 0, 0.25, -0.01]  # 99.20
+    x0 = [0.1, 0, 0.27, -0.01]  # 99.20
+    # complex model condition
+    # x0 = [1, 0, 0.25, -0.01]  # optimal 135.26
+    # x0 = [1, 0, 0.25, -0.1]  # optimal 134.91
+    # x0 = [4, 0, 0.25, -0.1]  # optimal 2319.46
+    # x0 = [4, 0, 0.25, -0.01]  # 2308.80
+    # x0 = [0.1, 0, 0.25, -0.01]  # 57.08
+    # x0 = [0.1, 0, 0.25, -0.01]  # Ts=0.05 93.54
+    # x0 = [0.5, -0.01, 0.25, -0.01]  # 59.73
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -98,7 +113,7 @@ def main():
     lmpc = LMPC(ftocp, CVX=False)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
-    totalIterations = 200  # Number of iterations to perform
+    totalIterations = 0  # Number of iterations to perform
     n_params = 4
     theta_bounds = np.array([[0.1, 1000]] * n_params)
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])

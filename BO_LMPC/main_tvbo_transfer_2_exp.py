@@ -28,7 +28,7 @@ import time as tim
 
 def main():
     np.random.seed(4)
-    Ts = 0.1
+    Ts = 0.05
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
@@ -40,7 +40,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.25, -0.01]
+    x0 = [0.1, 0, 0.25, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -99,7 +99,7 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-    prior = None
+
     n_inital_points = 1
     n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
