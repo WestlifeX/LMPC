@@ -48,7 +48,7 @@ def main():
     # x0 = [1, 0, 0.3, -0.01]  # optimal 423.11
     # x0 = [4, 0, 0.25, -0.01]  # optimal 3285.69
     # x0 = [0.1, 0, 0.25, -0.01]  # 99.20
-    x0 = [0.1, 0, 0.27, -0.01]  # 99.20
+    x0 = [1, 0, 0.25, -0.01]  # 99.20
     # complex model condition
     # x0 = [1, 0, 0.25, -0.01]  # optimal 135.26
     # x0 = [1, 0, 0.25, -0.1]  # optimal 134.91
@@ -82,19 +82,14 @@ def main():
 
         # Apply optimal input to the system
         # ucl.append(ut)
-        # for i in range(len(ucl_feasible)):
-            # ut = ucl_feasible[i]
-            # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-            # xcl_feasible.append(z[1].tolist())
-            # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        xcl_feasible.append(ftocp_for_mpc.xPred[:, 1])
+        # xcl_feasible.append(ftocp_for_mpc.xPred[:, 1])
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -110,7 +105,7 @@ def main():
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 5  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
-    lmpc = LMPC(ftocp, CVX=False)  # Initialize the LMPC (decide if you wanna use the CVX hull)
+    lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
     totalIterations = 0  # Number of iterations to perform
@@ -121,7 +116,6 @@ def main():
     # iteration loop
     print("Starting LMPC")
     returns = []
-    prior = None
     n_inital_points = 5
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
@@ -254,24 +248,18 @@ def iters_once(x0, lmpc, Ts, params, res=False):
         # Read measurement
         xt = xcl[time]
         # Solve FTOCP
-        try:
-            lmpc.solve(xt, verbose=False)
-        except cvxpy.error.SolverError:
-            return None
+        lmpc.solve(xt, verbose=False)
         # Read optimal input
-        try:
-            ut = lmpc.uPred[:, 0][0]
-        except IndexError:
-            return None
+        ut = lmpc.uPred[:, 0][0]
 
         # Apply optimal input to the system
         ucl.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl.append(z[1])
-        xcl.append(lmpc.xPred[:, 1])
+        # xcl.append(lmpc.xPred[:, 1])
         # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         # xcl.append(np.array(lmpc.ftocp.model(xt, ut)) + np.clip(np.random.randn(4) * 1e-3, -0.1, 0.1))
-        # xcl.append(np.array(lmpc.ftocp.model(xt, ut)))
+        xcl.append(np.array(lmpc.ftocp.model(xt, ut)))
         time += 1
 
     # Add trajectory to update the safe set and value function

@@ -74,7 +74,7 @@ class FTOCP(object):
         #        ]
 
         f = Function('f', [x, u], [vcat(ode)], ['state', 'input'], ['ode'])
-        intg_options = {'tf': 0.05}
+        intg_options = {'tf': 0.1}
         dae = {'x': x, 'p': u, 'ode': f(x, u)}
         intg = integrator('intg', 'rk', dae, intg_options)
         res = intg(x0=x, p=u)

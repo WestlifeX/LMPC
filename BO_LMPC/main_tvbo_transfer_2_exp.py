@@ -28,7 +28,7 @@ import time as tim
 
 def main():
     np.random.seed(4)
-    Ts = 0.05
+    Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
@@ -40,7 +40,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [0.1, 0, 0.25, -0.01]
+    x0 = [1, 0, 0.2, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -58,7 +58,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-6):
+    while np.dot(xt, xt) > 10 ** (-4):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -87,7 +87,7 @@ def main():
     # Initialize LMPC object
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
-    N_LMPC = 5  # horizon length
+    N_LMPC = 6  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set

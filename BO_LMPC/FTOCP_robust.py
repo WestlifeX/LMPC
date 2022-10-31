@@ -15,7 +15,7 @@ class FTOCP(object):
 
 	"""
 
-    def __init__(self, N, A, B, Q, R, params):
+    def __init__(self, N, A, B, Q, R, K, params):
         # Define variables
         self.N = N  # Horizon Length
 
@@ -28,10 +28,16 @@ class FTOCP(object):
         # Cost (h(x,u) = x^TQx +u^TRu)
         self.Q = Q
         self.R = R
-
+        self.K = K
+        self.F = np.vstack((np.eye(4), np.zeros((1, 4))))
+        self.G = np.zeros((5, 1))
+        self.G[4] = 1
+        self.f = np.array([5, 5, 0.5, 1, 5])
+        self.phi = self.F + np.dot(self.G, self.K)
         # Initialize Predicted Trajectory
         self.xPred = []
         self.uPred = []
+
         self.bias = 0
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
@@ -47,16 +53,20 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
-            constr += [u[:, i] >= -5.0,
-                       u[:, i] <= 5.0,
-                       x[0, i] >= -5.0,
-                       x[0, i] <= 3.0,
-                       x[1, i] >= -3.0,
-                       x[1, i] <= 5.0,
-                       x[2, i] >= -0.5,
-                       x[2, i] <= 0.5,
-                       x[3, i] >= -1,
-                       x[3, i] <= 1, ]
+            constr += [self.F @ x[:, i] + self.G @ u[:, i] <= self.f -
+                       np.abs(np.dot(self.phi, np.array([0.01]*4).reshape(-1, )))]
+            constr += [self.F @ x[:, i] + self.G @ u[:, i] >= -self.f +
+                       np.abs(np.dot(self.phi, np.array([0.01]*4).reshape(-1, )))]
+            # constr += [u[:, i] >= -5.0 + np.abs(self.bias),
+            #            u[:, i] <= 5.0 - np.abs(self.bias),
+            #            x[0, i] >= -5.0,
+            #            x[0, i] <= 5.0,
+            #            x[1, i] >= -5.0,
+            #            x[1, i] <= 5.0,
+            #            x[2, i] >= -0.5+1e-5,
+            #            x[2, i] <= 0.5-1e-5,
+            #            x[3, i] >= -1+1e-5,
+            #            x[3, i] <= 1-1e-5, ]
             constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
             # constr += [x[:, i + 1] == odeint(inv_pendulum, x[:, i], [0, 0.1], args=(u[:, i], params))[1]]
         # Cost Function

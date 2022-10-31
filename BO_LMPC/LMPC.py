@@ -42,7 +42,7 @@ class LMPC(object):
         for i in range(len(self.SS)):
             self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
 
-    def addTrajectory(self, x, u):
+    def addTrajectory(self, x, u, x_true=None, u_true=None):
         # Add the feasible trajectory x and the associated input sequence u to the safe set
         self.SS.append(copy.copy(x))
         self.uSS.append(copy.copy(u))
@@ -51,8 +51,12 @@ class LMPC(object):
         cost = self.computeCost(x, u)
         self.Qfun.append(cost)
 
-        cost_true = self.computeCost(x, u, self.Q_true)
-        self.Qfun_true.append(cost_true)
+        if x_true is not None and u_true is not None:
+            cost_true = self.computeCost(x_true, u_true, self.Q_true)
+            self.Qfun_true.append(cost_true)
+        else:
+            cost_true = self.computeCost(x, u, self.Q_true)
+            self.Qfun_true.append(cost_true)
 
         # Initialize zVector
         # self.zt = np.array(x[self.ftocp.N], dtype=object)
