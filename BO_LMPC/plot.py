@@ -6,6 +6,8 @@ file_names = os.listdir('./new_results/')
 # linearize: 模型有线性化误差
 # nonlinear: Ts=0.05, x0=[0.1, 0, 0.25, -0.01]，正确的非线性模型
 # transfer_fg_1: Ts=0.05, x0=[0.1, 0, 0.25, -0.01]，线性模型，分段权重
+# nonlinear_50: Ts=0.01, x0=[1, 0, 0.1, -0.01]
+# transfer_fg_50: Ts=0.01, x0=[1, 0, 0.1, -0.01]
 data = []
 for name in file_names:
     if name != 'linearize.md' and name != 'nonlinear.md' and name != 'transfer_fg_1.md' \

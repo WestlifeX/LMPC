@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from NLP_continuous import FTOCP
+from FTOCP import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
@@ -39,7 +39,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.2, -0.01]
+    x0 = [1, 0, 0.1, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -57,7 +57,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-4):
+    while np.dot(xt, xt) > 10 ** (-3):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -68,10 +68,10 @@ def main():
         # Read input and apply it to the system
         ut = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(ut)
-        z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
-        xcl_feasible.append(z[1])
+        # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
+        # xcl_feasible.append(z[1])
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
-        # xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         time += 1
 
     # print(np.round(np.array(xcl_feasible).T, decimals=2))
@@ -200,7 +200,7 @@ def iters_once(x0, lmpc, Ts, params, res=False):
     time = 0
     # time Loop (Perform the task until close to the origin)
     # while np.dot(xcl[time], xcl[time]) > 10 ** (-5):
-    for time in range(100):
+    for time in range(60):
         # Read measurement
         xt = xcl[time]
         # Solve FTOCP

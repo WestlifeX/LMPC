@@ -7,7 +7,8 @@ import pdb
 import matplotlib
 from scipy.integrate import odeint
 from tqdm import tqdm
-from control import lqr
+from control import dlqr
+import cvxpy
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
@@ -37,8 +38,9 @@ def main():
     # B = np.array([[0], [1]])
     Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
     R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
-    K, _, _ = lqr(Ad, Bd, Q, R)
-    K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
+    K, _, _ = dlqr(Ad, Bd, Q, R)
+    K = -K
+    # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition
     x0 = [1, 0, 0.25, -0.01]
@@ -122,6 +124,9 @@ def main():
             train_y = []
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i].tolist())
+                # K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+                # K = -K
+                # lmpc.ftocp.K = K
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
                 train_y.append(train_obj)
@@ -139,6 +144,9 @@ def main():
             bias = 0
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i - n_inital_points].tolist())
+                # K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+                # K = -K
+                # lmpc.ftocp.K = K
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)  # 新数据
                 xcls.append(xcl)
@@ -183,6 +191,9 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
+            # K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+            # K = -K
+            # lmpc.ftocp.K = K
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)
@@ -218,6 +229,9 @@ def main():
             # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
         lmpc.theta_update(last_params.tolist()[0])
+        # K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+        # K = -K
+        # lmpc.ftocp.K = K
         result, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
         if result[0][0] < np.min(train_y[-(n_inital_points + n_iters):], axis=0)[0]:
             lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
@@ -247,6 +261,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
+    K, _, _ = dlqr(Ad, Bd, Q, R)
+    K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
@@ -280,13 +296,19 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         xt = xcl_true[time]
         bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
         # Solve FTOCP
-        if SS is not None and Qfun is not None:
-            lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
-        else:
-            lmpc.solve(st, verbose=False)
+        try:
+            if SS is not None and Qfun is not None:
+                lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
+            else:
+                lmpc.solve(st, verbose=False)
+        except cvxpy.error.SolverError:
+            return None
         # Read optimal input
         # Read optimal input
-        vt = lmpc.uPred[:, 0][0]
+        try:
+            vt = lmpc.uPred[:, 0][0]
+        except TypeError:
+            return None
         ucl.append(vt)
 
         ut = bias + vt
@@ -300,8 +322,9 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
 
-        uncertainty = np.vstack((np.zeros((2, 1)),
-                                 np.clip(np.random.randn(2, 1) * 1e-3, -0.01, 0.01)))
+        uncertainty = np.clip(np.random.randn(4, 1) * 0.01, -0.1, 0.1)
+        uncertainty[1] = 0
+        uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)) + uncertainty.reshape(-1, ))
         time += 1
 

@@ -5,8 +5,10 @@ from cvxpy import *
 from scipy.integrate import odeint
 from objective_functions_lqr import inv_pendulum, get_params
 import casadi as ca
-
-
+import pypolycontain as pp
+import copy
+from pytope import Polytope
+from eps_MRPI import eps_MRPI
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
 	Methods:
@@ -32,8 +34,26 @@ class FTOCP(object):
         self.F = np.vstack((np.eye(4), np.zeros((1, 4))))
         self.G = np.zeros((5, 1))
         self.G[4] = 1
-        self.f = np.array([5, 5, 0.5, 1, 5])
+        self.f = np.array([3, 3, 1, 2, 5])
         self.phi = self.F + np.dot(self.G, self.K)
+
+        W_A = np.array([[0, 0, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, -1, 0]])
+        W_b = np.array([0.1, 0.1, 0.1, 0.1])
+        # W = Polytope(W_A, W_b)
+        Ak = self.A + np.dot(self.B, self.K)
+        # F_alpha_s, result = eps_MRPI(Ak, W, 0.01)
+        W = pp.H_polytope(W_A, W_b)
+
+        rho = 0.8
+        rho_W = pp.H_polytope(W_A, rho * W_b)
+        mRPI = copy.deepcopy(W)
+        for i in range(1, 50):
+            Ai = Ak ** i
+            AW = pp.AH_polytope(np.zeros((4, 1)), Ai, W)
+            if pp.check_subset(AW, rho_W):
+                break
+            mRPI = pp.minkowski_sum(mRPI, AW)
+        self.mRPI = 1 / (1 - rho) * mRPI
         # Initialize Predicted Trajectory
         self.xPred = []
         self.uPred = []
@@ -54,9 +74,9 @@ class FTOCP(object):
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
             constr += [self.F @ x[:, i] + self.G @ u[:, i] <= self.f -
-                       np.abs(np.dot(self.phi, np.array([0.01]*4).reshape(-1, )))]
+                       np.abs(np.dot(self.phi, np.array([0.1, 0, 0.1, 0]).reshape(-1, )))]
             constr += [self.F @ x[:, i] + self.G @ u[:, i] >= -self.f +
-                       np.abs(np.dot(self.phi, np.array([0.01]*4).reshape(-1, )))]
+                       np.abs(np.dot(self.phi, np.array([0.1, 0, 0.1, 0]).reshape(-1, )))]
             # constr += [u[:, i] >= -5.0 + np.abs(self.bias),
             #            u[:, i] <= 5.0 - np.abs(self.bias),
             #            x[0, i] >= -5.0,

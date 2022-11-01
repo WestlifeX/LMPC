@@ -7,7 +7,7 @@ import pdb
 import matplotlib
 from scipy.integrate import odeint
 from tqdm import tqdm
-
+import cvxpy
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
@@ -40,7 +40,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.2, -0.01]
+    x0 = [1, 0, 0.1, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -58,7 +58,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-4):
+    while np.dot(xt, xt) > 10 ** (-3):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -269,17 +269,24 @@ def iters_once(x0, lmpc, Ts, params, res=False, SS=None, Qfun=None):
     time = 0
     # time Loop (Perform the task until close to the origin)
     # while np.dot(xcl[time], xcl[time]) > 10 ** (-5):
-    for time in range(100):
+    for time in range(60):
         # Read measurement
         xt = xcl[time]
 
         # Solve FTOCP
-        if SS is not None and Qfun is not None:
-            lmpc.solve(xt, verbose=False, SS=SS, Qfun=Qfun)
-        else:
-            lmpc.solve(xt, verbose=False)
+        try:
+            if SS is not None and Qfun is not None:
+                lmpc.solve(xt, verbose=False, SS=SS, Qfun=Qfun)
+            else:
+                lmpc.solve(xt, verbose=False)
+        except cvxpy.error.SolverError:
+            return None
         # Read optimal input
-        ut = lmpc.uPred[:, 0][0]
+
+        try:
+            ut = lmpc.uPred[:, 0][0]
+        except TypeError:
+            return None
 
         # Apply optimal input to the system
         ucl.append(ut)

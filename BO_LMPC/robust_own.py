@@ -108,11 +108,7 @@ def main():
             iters_once(x0, lmpc, Ts, params, K=K)
         else:
             # bayes opt
-            # theta_bounds[:, 0] = last_params / 2
-            # theta_bounds[:, 1] = last_params * 2
-            # theta_bounds = np.clip(theta_bounds, 0, 1000)
             print("Initializing")
-            # if it == 0:
             x_init = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
             train_x = []
@@ -129,21 +125,6 @@ def main():
             train_x = np.array(train_x).reshape(-1, 4)
             train_y = np.array(train_y).reshape(-1, 1)
 
-            # else:
-            #     train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-            #                                 size=(n_inital_points, theta_bounds.shape[0]))))
-            #     y_t = []
-            #     for i in range(n_inital_points):
-            #         lmpc.theta_update(train_x[i-n_inital_points].tolist())
-            #         train_obj = iters_once(x0, lmpc, Ts, params, res=True)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-            #         y_t.append(train_obj)
-            #     y_t = np.array(y_t).reshape(-1, 1)
-            #     # y_t = np.squeeze(y_t, axis=1)
-            #     train_y = np.vstack([train_y, y_t])
-            # if train_x.shape[0] > 100:
-            #     train_x = train_x[-100:, :]
-            #     train_y = train_y[-100:, :]
-            # model = gp.GaussianProcess(kernel, 0.001)
             model = GaussianProcessRegressor(kernel=kernels.RBF(), n_restarts_optimizer=5, normalize_y=False)
             model.fit(train_x, train_y)
             # model.fit(train_x, train_y)
@@ -168,16 +149,7 @@ def main():
                     model.fit(train_x, train_y)
                 else:
                     n_None += 1
-            # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
-            # res = iters_once(x0, lmpc, Ts, params)
-            # lmpc.theta_update([1, 1, 1, 1])
-            # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
-            # lmpc.theta_update(last_params.tolist()[0])
-            # result = iters_once(x0, lmpc, Ts, params, res=True)
-            # if result[0][0] < np.min(train_y[-(n_inital_points+n_iters):], axis=0)[0]:
-            #     iters_once(x0, lmpc, Ts, params)
-            # else:
             theta = train_x[-(n_inital_points+n_iters-n_None):][np.argmin(train_y[-(n_inital_points+n_iters-n_None):], axis=0)]
             lmpc.theta_update(theta.tolist()[0])
             iters_once(x0, lmpc, Ts, params, K=K)
@@ -247,8 +219,11 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
 
-        uncertainty = np.vstack((np.zeros((2, 1)),
-                                 np.clip(np.random.randn(2, 1) * 1e-3, -0.01, 0.01)))
+        # uncertainty = np.vstack((np.zeros((2, 1)),
+        #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
+        uncertainty = np.clip(np.random.randn(4, 1) * 0.01, -0.1, 0.1)
+        uncertainty[1] = 0
+        uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)) + uncertainty.reshape(-1, ))
         time += 1
 

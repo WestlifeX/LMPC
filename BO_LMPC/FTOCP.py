@@ -47,16 +47,16 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
-            constr += [u[:, i] >= -5.0,
-                       u[:, i] <= 5.0,
-                       x[0, i] >= -5.0,
-                       x[0, i] <= 3.0,
-                       x[1, i] >= -3.0,
-                       x[1, i] <= 5.0,
-                       x[2, i] >= -0.5,
-                       x[2, i] <= 0.5,
-                       x[3, i] >= -1,
-                       x[3, i] <= 1, ]
+            # constr += [u[:, i] >= -5.0,
+            #            u[:, i] <= 5.0,
+            #            x[0, i] >= -5.0,
+            #            x[0, i] <= 3.0,
+            #            x[1, i] >= -3.0,
+            #            x[1, i] <= 5.0,
+            #            x[2, i] >= -0.5,
+            #            x[2, i] <= 0.5,
+            #            x[3, i] >= -1,
+            #            x[3, i] <= 1, ]
             constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
             # constr += [x[:, i + 1] == odeint(inv_pendulum, x[:, i], [0, 0.1], args=(u[:, i], params))[1]]
         # Cost Function
