@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 
-from FTOCP import FTOCP
+from FTOCP_casadi import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
 from tqdm import tqdm
-
+import cvxpy
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
@@ -27,7 +27,8 @@ import time as tim
 
 
 def main():
-    np.random.seed(4)
+    np.random.seed(1)
+    args = {'u_limit': 4}
     Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)
@@ -40,7 +41,7 @@ def main():
 
     print("Computing a first feasible trajectory")
     # Initial Condition
-    x0 = [1, 0, 0.2, -0.01]
+    x0 = [1, 0, 0.15, -0.01]
 
     # Initialize FTOCP object
     N_feas = 10
@@ -49,7 +50,7 @@ def main():
     # 修改了初值的位置，因为x离原点太远了，把cart调回原点需要太多步了（x的初值应该是可以改的，因为线性化只针对phi）
     # 增大了采样时间0.02 --> 0.1，同上，采样时间越小需要的步数就越多
     # 增大了Q（原来是0.01*Q），Q大一点应该可以快点收敛吧
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R, args)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -58,7 +59,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-3):
+    while np.dot(xt, xt) > 10 ** (-5):
         xt = xcl_feasible[time]  # Read measurements
 
         ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
@@ -88,11 +89,11 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 5  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, args)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
-    totalIterations = 200  # Number of iterations to perform
+    totalIterations = 300  # Number of iterations to perform
     n_params = 4
     theta_bounds = np.array([[0.5, 2]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
@@ -244,7 +245,7 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, params)
+    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, args)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
@@ -274,12 +275,19 @@ def iters_once(x0, lmpc, Ts, params, res=False, SS=None, Qfun=None):
         xt = xcl[time]
 
         # Solve FTOCP
-        if SS is not None and Qfun is not None:
-            lmpc.solve(xt, verbose=False, SS=SS, Qfun=Qfun)
-        else:
-            lmpc.solve(xt, verbose=False)
+        try:
+            if SS is not None and Qfun is not None:
+                lmpc.solve(xt, verbose=False, SS=SS, Qfun=Qfun)
+            else:
+                lmpc.solve(xt, verbose=False)
+        except cvxpy.error.SolverError:
+            return None
         # Read optimal input
-        ut = lmpc.uPred[:, 0][0]
+
+        try:
+            ut = lmpc.uPred[:, 0][0]
+        except TypeError:
+            return None
 
         # Apply optimal input to the system
         ucl.append(ut)

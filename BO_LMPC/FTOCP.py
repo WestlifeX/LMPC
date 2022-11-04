@@ -15,7 +15,7 @@ class FTOCP(object):
 
 	"""
 
-    def __init__(self, N, A, B, Q, R, params):
+    def __init__(self, N, A, B, Q, R, args):
         # Define variables
         self.N = N  # Horizon Length
 
@@ -33,6 +33,7 @@ class FTOCP(object):
         self.xPred = []
         self.uPred = []
         self.bias = 0
+        self.args = args
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
 			- x0: initial condition
@@ -47,11 +48,11 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
-            # constr += [u[:, i] >= -5.0,
-            #            u[:, i] <= 5.0,
+            constr += [u[:, i] >= -self.args['u_limit'],
+                       u[:, i] <= self.args['u_limit'], ]
             #            x[0, i] >= -5.0,
-            #            x[0, i] <= 3.0,
-            #            x[1, i] >= -3.0,
+            #            x[0, i] <= 5.0,
+            #            x[1, i] >= -5.0,
             #            x[1, i] <= 5.0,
             #            x[2, i] >= -0.5,
             #            x[2, i] <= 0.5,

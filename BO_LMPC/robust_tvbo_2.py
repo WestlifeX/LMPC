@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from FTOCP_casadi import FTOCP
+from FTOCP_robust import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
@@ -31,24 +31,20 @@ def main():
     np.random.seed(4)
     Ts = 0.1
     params = get_params()
-    # linear_model = get_linearized_model(params, Ts)
+    linear_model = get_linearized_model(params, Ts)
     # Define system dynamics and cost
-    # (Ad, Bd, A, B) = linear_model
-    Ad = np.array([[1.2, 1.5], [0, 1.3]])
-    Bd = np.array([[0.], [1.]])
-    Q = np.eye(Ad.shape[0])
-    R = np.eye(1) * 10
+    (Ad, Bd, A, B) = linear_model
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
-    # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
-    # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
+    Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
+    R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition
-    # x0 = [1, 0, 0.25, -0.01]
-    x0 = [4.6, 0.8]
+    x0 = [2, 0, 0.25, -0.01]
+
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -58,27 +54,25 @@ def main():
     # ====================================================================================
     xcl_feasible = [x0]
     ucl_feasible = []
-    xcl_feasible_true = [x0]
-    ucl_feasible_true = []
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
     while np.dot(xt, xt) > 10 ** (-6):
-        st = xcl_feasible[time]
-        xt = xcl_feasible_true[time]  # Read measurements
-        bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
+        xt = xcl_feasible[time]  # Read measurements
 
-        ftocp_for_mpc.solve(st, verbose=False)  # Solve FTOCP
+        ftocp_for_mpc.solve(xt, verbose=False)  # Solve FTOCP
 
-        vt = ftocp_for_mpc.uPred[:, 0][0]
-        ucl_feasible.append(vt)
-        ut = bias + vt
-        ucl_feasible_true.append(ut)
+        # ucl_feasible = ftocp_for_mpc.uPred.T.tolist()
+
+        # Apply optimal input to the system
+        # ucl.append(ut)
+        # for i in range(len(ucl_feasible)):
+        # Read input and apply it to the system
+        ut = ftocp_for_mpc.uPred[:, 0][0]
+        ucl_feasible.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
         # xcl_feasible.append(z[1])
-        xcl_feasible.append(ftocp_for_mpc.model(st, vt))
-        xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        xcl_feasible_true[-1] += np.sin(xcl_feasible_true[-1]) * 0.1  # uncertainties
+        xcl_feasible.append(ftocp_for_mpc.model(xcl_feasible[time], ut))
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
     # ====================================================================================
@@ -94,7 +88,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 200  # Number of iterations to perform
-    n_params = 2
+    n_params = 4
     theta_bounds = np.array([[0.5, 2]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
@@ -118,7 +112,7 @@ def main():
         # bayes opt
         theta_bounds[:, 0] = last_params / 2
         theta_bounds[:, 1] = last_params * 2
-        theta_bounds = np.clip(theta_bounds, 0, 100)
+        theta_bounds = np.clip(theta_bounds, 0, 1000)
         xcls = []
         ucls = []
         xcls_true = []
@@ -327,17 +321,16 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
-        # uncertainty = xcl[-1] ** 2 * 1e-3
-        # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
-        # uncertainty[1] = 0
-        # uncertainty[3] = 0
-        xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        xcl_true[-1] += np.sin(xcl_true[-1]) * 0.1
+
+        uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
+        uncertainty[1] = 0
+        uncertainty[3] = 0
+        xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)) + uncertainty.reshape(-1, ))
         time += 1
 
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2))[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(4) * 10)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

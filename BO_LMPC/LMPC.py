@@ -25,17 +25,17 @@ class LMPC(object):
         self.R = ftocp.R
         self.it = 0
         self.CVX = CVX
-        self.Q_true = np.eye(4) * 10
+        self.Q_true = np.eye(2)
         self.Qfun_true = []
 
         self.last_SS = []
         self.last_Qfun = []
     def theta_update(self, theta):
         # theta0, theta1 = theta
-        self.ftocp.Q = 10 * np.eye(4) * np.diag(theta)
+        self.ftocp.Q = np.eye(2) * np.diag(theta)
         # self.ftocp.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.ftocp.R = np.eye(1) * theta
-        self.Q = 10 * np.eye(4) * np.diag(theta)
+        self.Q = np.eye(2) * np.diag(theta)
         # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.R = np.eye(1) * theta
         self.Qfun = []

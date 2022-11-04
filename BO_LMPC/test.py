@@ -44,7 +44,7 @@ def main():
     # Initial Condition
 
     # simple model condition
-    x0 = [1, 0, 0.25, -0.01]  # 99.20
+    x0 = [2, 0, 0.25, -0.01]  # 99.20
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -221,7 +221,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
 
         # uncertainty = np.vstack((np.zeros((2, 1)),
         #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
-        uncertainty = np.clip(np.random.randn(4, 1) * 0.01, -0.1, 0.1)
+        uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         uncertainty[1] = 0
         uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)) + uncertainty.reshape(-1, ))

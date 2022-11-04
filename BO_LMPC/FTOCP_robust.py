@@ -34,7 +34,7 @@ class FTOCP(object):
         self.F = np.vstack((np.eye(4), np.zeros((1, 4))))
         self.G = np.zeros((5, 1))
         self.G[4] = 1
-        self.f = np.array([3, 3, 1, 2, 5])
+        self.f = np.array([5, 3, 2, 2.5, 20])
         self.phi = self.F + np.dot(self.G, self.K)
 
         W_A = np.array([[0, 0, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, -1, 0]])
@@ -74,9 +74,9 @@ class FTOCP(object):
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
             constr += [self.F @ x[:, i] + self.G @ u[:, i] <= self.f -
-                       np.abs(np.dot(self.phi, np.array([0.1, 0, 0.1, 0]).reshape(-1, )))]
+                       np.abs(np.dot(self.phi, np.array([0.75, 0, 0.75, 0]).reshape(-1, )))]
             constr += [self.F @ x[:, i] + self.G @ u[:, i] >= -self.f +
-                       np.abs(np.dot(self.phi, np.array([0.1, 0, 0.1, 0]).reshape(-1, )))]
+                       np.abs(np.dot(self.phi, np.array([0.75, 0, 0.75, 0]).reshape(-1, )))]
             # constr += [u[:, i] >= -5.0 + np.abs(self.bias),
             #            u[:, i] <= 5.0 - np.abs(self.bias),
             #            x[0, i] >= -5.0,

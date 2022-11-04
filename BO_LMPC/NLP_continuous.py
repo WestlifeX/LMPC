@@ -17,7 +17,7 @@ class FTOCP(object):
 
 	"""
 
-    def __init__(self, N, A, B, Q, R, params):
+    def __init__(self, N, A, B, Q, R, params, args):
         # Define variables
         self.N = N  # Horizon Length
 
@@ -80,7 +80,7 @@ class FTOCP(object):
         res = intg(x0=x, p=u)
         x_next = res['xf']
         self.F = Function('F', [x, u], [x_next], ['state', 'input'], ['x_next'])
-        a = 1
+        self.args = args
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
 			- x0: initial condition
@@ -112,12 +112,13 @@ class FTOCP(object):
                        self.Q), X[self.n * i:self.n * (i + 1)]) + \
                     mtimes(mtimes(U[self.d * i:self.d * (i + 1)].T, self.R), U[self.d * i:self.d * (i + 1)])
 
+            # constraints = vertcat(constraints, X[self.n*(self.N):self.n*(self.N+1)]-mtimes(SS, lambVar))
             for i in range(self.n):
                 constraints = vertcat(constraints,
                                   X[self.n * self.N + i] - dot(SS[i], lambVar))
             constraints = vertcat(constraints, dot(np.ones(SS.shape[1]), lambVar) - 1)
             # constraints = vertcat(constraints, dot(lambVar, lambVar) - 1)
-            constraints = vertcat(constraints, lambVar - 0)
+            # constraints = vertcat(constraints, lambVar - 0)
             # cost = cost + Qfun[0][j]
             # for idx in range(SS.shape[1]):
             cost = cost + dot(Qfun[0], lambVar)
@@ -127,9 +128,11 @@ class FTOCP(object):
                        "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(X, U, lambVar), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
-            lbg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [0] * SS.shape[1]
-            ubg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1 + [1] * SS.shape[1]
-            sol = solver(lbg=lbg, ubg=ubg)
+            lbg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
+            ubg = [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
+            lbx = [-np.inf] * (self.n * (self.N + 1)) + [-self.args['u_limit']] * (self.d * self.N) + [0] * SS.shape[1]
+            ubx = [np.inf] * (self.n * (self.N + 1)) + [self.args['u_limit']] * (self.d * self.N) + [1] * SS.shape[1]
+            sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             res = np.array(sol['x'])
             xSol = res[0:(self.N + 1) * self.n].reshape((self.N + 1, self.n)).T
             uSol = res[(self.N + 1) * self.n:((self.N + 1) * self.n + self.d * self.N)].reshape(
@@ -163,8 +166,10 @@ class FTOCP(object):
                        "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(X, U), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
+            lbx = [-np.inf] * (self.n * (self.N + 1)) + [-self.args['u_limit']] * (self.d * self.N)
+            ubx = [np.inf] * (self.n * (self.N + 1)) + [self.args['u_limit']] * (self.d * self.N)
             # xGuess = self.xGuessTot = np.concatenate((np.array(x0), np.zeros((self.n+self.d) * self.N)), axis=0)
-            sol = solver(lbg=0, ubg=0)
+            sol = solver(lbx=lbx, ubx=ubx, lbg=0, ubg=0)
             res = np.array(sol['x'])
             xSol = res[0:(self.N + 1) * self.n].reshape((self.N + 1, self.n)).T
             uSol = res[(self.N + 1) * self.n:((self.N + 1) * self.n + self.d * self.N)].reshape(
