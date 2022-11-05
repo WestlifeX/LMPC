@@ -16,18 +16,25 @@ import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
 
+from botorch.optim import optimize_acqf
+from botorch.acquisition import UpperConfidenceBound
+from gpytorch.means import ConstantMean
+from gpytorch.kernels import MaternKernel
+import gaussian_process as gp
+import kernel as kn
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 
 
+# no fine-grained tvbo, just a simple bo
 def main():
     np.random.seed(2)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1., 1.], [0, 1.]])
     Bd = np.array([[0.], [1.]])
-    Q = np.eye(Ad.shape[0]) * 5
+    Q = np.eye(Ad.shape[0]) * 10
     R = np.eye(1) * 10
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
@@ -86,7 +93,7 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 2
-    theta_bounds = np.array([[0.2, 5.]] * n_params)
+    theta_bounds = np.array([[0.5, 2]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -115,63 +122,24 @@ def main():
         xcls_true = []
         ucls_true = []
         print("Initializing")
-        if it == 0:
-            train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-                                        size=(n_inital_points, theta_bounds.shape[0]))
-            train_y = []
-            for i in tqdm(range(n_inital_points)):
-                lmpc.theta_update(train_x[i].tolist())
-                K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
-                K = -K
-                lmpc.ftocp.K = K
-                train_obj, xcl, ucl, xcl_true, ucl_true = \
-                    iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
-                train_y.append(train_obj)
-                xcls.append(xcl)
-                ucls.append(ucl)
-                xcls_true.append(xcl_true)
-                ucls_true.append(ucl_true)
-            train_y = np.array(train_y).reshape(-1, 1)
-        else:
-            mu_s.append(mu_init)
-            tau_s.append(tau_init)
-            train_x = np.vstack((train_x, np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-                                                            size=(n_inital_points, theta_bounds.shape[0]))))
-            y_t = []
-            bias = 0
-            for i in tqdm(range(n_inital_points)):
-                lmpc.theta_update(train_x[i - n_inital_points].tolist())
-                K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
-                K = -K
-                lmpc.ftocp.K = K
-                train_obj, xcl, ucl, xcl_true, ucl_true = \
-                    iters_once(x0, lmpc, Ts, params, K=K)  # 新数据
-                xcls.append(xcl)
-                ucls.append(ucl)
-                xcls_true.append(xcl_true)
-                ucls_true.append(ucl_true)
-                source_obj, _, _, _, _ = \
-                    iters_once(x0, lmpc, Ts, params, K=K, SS=lmpc.SS[:-1],
-                                              Qfun=lmpc.Qfun[:-1])  # 原数据
-                bias += (train_obj - source_obj) ** 2
-                mu_s[:-1] = [m + bias / 2 for m in mu_s[:-1]]
-                tau_s[-2] += 1 / 2
-                # mu_s = [m + bias / 2 for m in mu_s]
-                # tau_s[-(i+1):] = [t + 1 / 2 for t in tau_s[-(i+1):]]
-                y_t.append(train_obj)
-            y_t = np.array(y_t).reshape(-1, 1)
-            # y_t = np.squeeze(y_t, axis=1)
-            train_y = np.vstack([train_y, y_t])
+        train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
+                                    size=(n_inital_points, theta_bounds.shape[0]))
+        train_y = []
+        for i in tqdm(range(n_inital_points)):
+            lmpc.theta_update(train_x[i].tolist())
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+            K = -K
+            lmpc.ftocp.K = K
+            train_obj, xcl, ucl, xcl_true, ucl_true = \
+                iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+            train_y.append(train_obj)
+            xcls.append(xcl)
+            ucls.append(ucl)
+            xcls_true.append(xcl_true)
+            ucls_true.append(ucl_true)
+        train_y = np.array(train_y).reshape(-1, 1)
 
-        alpha = np.ones(train_x.shape[0]) * 1e-10
-        for i in range(len(mu_s) - 1):
-            alpha[i * (n_inital_points + n_iters):(i + 1) * (n_inital_points + n_iters)] = mu_s[i] / (1 + tau_s[i])
-        # alpha[-n_inital_points:] = mu_s[-1] / (1 + tau_s[-1])
-        # if train_x.shape[0] > 100:
-        #     train_x = train_x[-100:, :]
-        #     train_y = train_y[-100:, :]
-        # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5,
+        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5,
                                          normalize_y=False)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
@@ -199,24 +167,8 @@ def main():
             ucls_true.append(ucl_true)
             train_y = np.vstack((train_y, new_res))
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
-            if it != 0:
-                source_obj, _, _, _, _ = \
-                    iters_once(x0, lmpc, Ts, params, K=K, SS=lmpc.SS[:-1],
-                                              Qfun=lmpc.Qfun[:-1])  # 原数据
-                bias += (new_res - source_obj) ** 2
-                mu_s[:-1] = [m + bias / 2 for m in mu_s[:-1]]
-                tau_s[-2] += 1 / 2
-                # mu_s = [m + bias / 2 for m in mu_s]
-                # tau_s[-(idx+n_inital_points+1):] = [t + 1 / 2 for t in tau_s[-(idx+n_inital_points+1):]]
-                alpha = np.ones(train_x.shape[0]) * 1e-10
-                for i in range(len(mu_s) - 1):
-                    alpha[i * (n_inital_points + n_iters):(i + 1) * (n_inital_points + n_iters)] = mu_s[i] / (
-                            1 + tau_s[i])
-                # alpha[-(n_inital_points+idx+1):] = mu_s[-1] / (1 + tau_s[-1])
-            else:
-                alpha = np.ones(train_x.shape[0]) * 1e-10
 
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), alpha=alpha, n_restarts_optimizer=5,
+            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5,
                                              normalize_y=False)
             model.fit(train_x, train_y)
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
@@ -225,23 +177,16 @@ def main():
             # lmpc.theta_update([1, 1, 1, 1])
             # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
-        lmpc.theta_update(last_params.tolist()[0])
-        K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
-        K = -K
-        lmpc.ftocp.K = K
-        result, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
-        if result[0][0] < np.min(train_y[-(n_inital_points + n_iters):], axis=0)[0]:
-            lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
-        else:
-            theta = train_x[-(n_inital_points + n_iters):][
-                np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)]
-            # lmpc.theta_update(theta.tolist()[0])
-            # iters_once(x0, lmpc, Ts, params)
-            lmpc.addTrajectory(xcls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                               ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                               xcls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                               ucls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
-            last_params = copy.deepcopy(theta.reshape(1, -1))
+
+        theta = train_x[-(n_inital_points + n_iters):][
+            np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)]
+        # lmpc.theta_update(theta.tolist()[0])
+        # iters_once(x0, lmpc, Ts, params)
+        lmpc.addTrajectory(xcls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           xcls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           ucls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
+        last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
 

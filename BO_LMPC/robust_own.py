@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from FTOCP_casadi import FTOCP
+from FTOCP_robust import FTOCP
 # from FTOCP import FTOCP
 from LMPC import LMPC
 import pdb
@@ -22,12 +22,12 @@ import cvxpy
 import time as ti
 from control import dlqr
 def main():
-    np.random.seed(4)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
-    Ad = np.array([[1.2, 1.5], [0, 1.3]])
+    Ad = np.array([[1., 1.], [0, 1.]])
     Bd = np.array([[0.], [1.]])
-    Q = np.eye(Ad.shape[0])
+    Q = np.eye(Ad.shape[0]) * 10
     R = np.eye(1) * 10
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
@@ -39,11 +39,11 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
-    x0 = [4.6, 0.8]
+    x0 = [4., 0.]
     # Initialize FTOCP object
-    N_feas = 10
+    N_feas = 5
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, R, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.01 * Q, R, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -69,7 +69,7 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        xcl_feasible_true[-1] += np.sin(xcl_feasible_true[-1]) * 0.1  # uncertainties
+        xcl_feasible_true[-1] = [a + np.exp(a**2/200)-1 for a in xcl_feasible_true[-1]]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
     # ====================================================================================
@@ -79,14 +79,13 @@ def main():
     # Initialize LMPC object
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
-    N_LMPC = 5  # horizon length
+    N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
-    totalIterations = 200  # Number of iterations to perform
+    totalIterations = 50  # Number of iterations to perform
     n_params = 2
-    theta_bounds = np.array([[0.1, 1000]] * n_params)
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])
     # run simulation
     # iteration loop
@@ -136,8 +135,8 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
     ucl_true = []
     time = 0
     # time Loop (Perform the task until close to the origin)
-    # while np.dot(xcl[time], xcl[time]) > 10 ** (-6):
-    for time in range(100):
+    while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
+    # for time in range(20):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
@@ -159,7 +158,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
         # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        xcl_true[-1] += np.sin(xcl_true[-1]) * 0.1
+        xcl_true[-1] = [a + np.exp(a**2/200)-1 for a in xcl_true[-1]]
         time += 1
 
     # Add trajectory to update the safe set and value function
@@ -167,7 +166,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2))[0]
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2) * 10)[0]
 
 
 if __name__ == "__main__":

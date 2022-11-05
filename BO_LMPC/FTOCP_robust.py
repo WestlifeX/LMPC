@@ -5,10 +5,9 @@ from cvxpy import *
 from scipy.integrate import odeint
 from objective_functions_lqr import inv_pendulum, get_params
 import casadi as ca
-import pypolycontain as pp
 import copy
-from pytope import Polytope
-from eps_MRPI import eps_MRPI
+from mrpi.polyhedron import polyhedron
+from mrpi.mRPI_set import compute_mRPI
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
 	Methods:
@@ -31,34 +30,40 @@ class FTOCP(object):
         self.Q = Q
         self.R = R
         self.K = K
-        self.F = np.vstack((np.eye(4), np.zeros((1, 4))))
-        self.G = np.zeros((5, 1))
-        self.G[4] = 1
-        self.f = np.array([5, 3, 2, 2.5, 20])
-        self.phi = self.F + np.dot(self.G, self.K)
-
-        W_A = np.array([[0, 0, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, -1, 0]])
-        W_b = np.array([0.1, 0.1, 0.1, 0.1])
-        # W = Polytope(W_A, W_b)
-        Ak = self.A + np.dot(self.B, self.K)
-        # F_alpha_s, result = eps_MRPI(Ak, W, 0.01)
-        W = pp.H_polytope(W_A, W_b)
-
-        rho = 0.8
-        rho_W = pp.H_polytope(W_A, rho * W_b)
-        mRPI = copy.deepcopy(W)
-        for i in range(1, 50):
-            Ai = Ak ** i
-            AW = pp.AH_polytope(np.zeros((4, 1)), Ai, W)
-            if pp.check_subset(AW, rho_W):
-                break
-            mRPI = pp.minkowski_sum(mRPI, AW)
-        self.mRPI = 1 / (1 - rho) * mRPI
         # Initialize Predicted Trajectory
         self.xPred = []
         self.uPred = []
 
         self.bias = 0
+
+        self.len_conx = 0
+        self.len_conu = 0
+        W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
+        W_b = np.array([0.1, 0.1, 0.1, 0.1]).reshape(-1, 1)
+        W = polyhedron(W_A, W_b)
+        eps = 1e-5
+        # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
+        _, self.F_list = compute_mRPI(eps, W, self.A, self.B, self.K, self.N)
+
+        X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
+        X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)
+        X = polyhedron(X_A, X_b)
+        U_A = np.array([[1.], [-1.]])
+        U_b = np.array([1., 1.]).reshape(-1, 1)
+        U = polyhedron(U_A, U_b)
+        self.constr_x = []
+        self.constr_u = []
+        for i in range(self.N+1):
+            self.constr_x.append(X.minkowskiDiff(self.F_list[i]))
+            if i > 0:
+                self.constr_x[i].minVrep()
+            self.constr_x[i].compute_Hrep()
+            self.len_conx += self.constr_x[i].A.shape[0]
+        for i in range(self.N):
+            self.constr_u.append(U.minkowskiDiff(self.F_list[i].affineMap(self.K)))
+            self.constr_u[i].compute_Hrep()
+            self.len_conu += self.constr_u[i].A.shape[0]
+
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
 			- x0: initial condition
@@ -73,10 +78,8 @@ class FTOCP(object):
         # State Constraints
         constr = [x[:, 0] == x0[:]]  # initializing condition
         for i in range(self.N):
-            constr += [self.F @ x[:, i] + self.G @ u[:, i] <= self.f -
-                       np.abs(np.dot(self.phi, np.array([0.75, 0, 0.75, 0]).reshape(-1, )))]
-            constr += [self.F @ x[:, i] + self.G @ u[:, i] >= -self.f +
-                       np.abs(np.dot(self.phi, np.array([0.75, 0, 0.75, 0]).reshape(-1, )))]
+            constr += [self.constr_x[i].A @ x[:, i] <= self.constr_x[i].b.reshape(-1, )]
+            constr += [self.constr_u[i].A @ u[:, i] <= self.constr_u[i].b.reshape(-1, )]
             # constr += [u[:, i] >= -5.0 + np.abs(self.bias),
             #            u[:, i] <= 5.0 - np.abs(self.bias),
             #            x[0, i] >= -5.0,
@@ -88,6 +91,7 @@ class FTOCP(object):
             #            x[3, i] >= -1+1e-5,
             #            x[3, i] <= 1-1e-5, ]
             constr += [x[:, i + 1] == self.A @ x[:, i] + self.B @ u[:, i], ]
+        constr += [self.constr_x[self.N].A @ x[:, self.N] <= self.constr_x[self.N].b.reshape(-1, )]
             # constr += [x[:, i + 1] == odeint(inv_pendulum, x[:, i], [0, 0.1], args=(u[:, i], params))[1]]
         # Cost Function
         cost = 0
@@ -124,9 +128,9 @@ class FTOCP(object):
         problem = Problem(Minimize(cost), constr)
         if CVX:
             # problem.solve(verbose=verbose)
-            problem.solve(verbose=verbose, solver=MOSEK)  # I find that ECOS is better please use it when solving QPs 3q
+            problem.solve(verbose=verbose, solver=ECOS)  # I find that ECOS is better please use it when solving QPs 3q
         else:
-            problem.solve(verbose=verbose)
+            problem.solve(verbose=verbose, solver=ECOS)
         self.xPred = x.value
         self.uPred = u.value
         # Store the open-loop predicted trajectory

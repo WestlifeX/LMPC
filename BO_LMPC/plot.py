@@ -8,17 +8,21 @@ file_names = os.listdir('./new_results/')
 # transfer_fg_1: Ts=0.05, x0=[0.1, 0, 0.25, -0.01]，线性模型，分段权重
 # nonlinear_50: Ts=0.1, x0=[1, 0, 0.1, -0.01] # 50步
 # transfer_fg_50: Ts=0.1, x0=[1, 0, 0.1, -0.01] # 50步
+
+
+# robust_own: 基础的robust LMPC
+# roubust_tvbo: fine-grained alpha tvbo + LMPC with 1+1
+# robust_bo: simple bo with 1+1
 data = []
 for name in file_names:
-    if name != 'linearize.md' and name != 'nonlinear.md' and name != 'transfer_fg_1.md' \
-            and name != 'transfer_1.md':
+    if name == 'robust_own.md' or name == 'robust_tvbo.md' or name == 'robust_bo.md':
         with open('./new_results/' + name) as f:
             lines = f.readlines()
             lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
             lines = np.array(lines)
             data.append(lines)
 
-        plt.plot(lines[1:], label=name.strip('.md'))
+        plt.plot(lines[0:30], label=name.strip('.md'))
 
 plt.legend()
 plt.show()

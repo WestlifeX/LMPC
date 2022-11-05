@@ -37,7 +37,7 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.1, 0.1, 0.1, 0.1]).reshape(-1, 1)
+        W_b = np.array([0.2, 0.2, 0.2, 0.2]).reshape(-1, 1)
         W = polyhedron(W_A, W_b)
         eps = 1e-5
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
@@ -105,31 +105,37 @@ class FTOCP(object):
             cost = cost + dot(Qfun[0], lambVar)  # Its terminal cost is given by interpolation using \lambda
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
-                       "ipopt.barrier_tol_factor": 1}
+                       "ipopt.mu_init": 0.1, "ipopt.mu_min": 1e-11,
+                       "ipopt.barrier_tol_factor": 10}
             nlp = {'x': vertcat(x, u, lambVar), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
-            lbx = [-np.inf] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N) + [0] * SS.shape[1]
-            ubx = [np.inf] * (self.n * (self.N + 1)) + [1] * (self.d * self.N) + [1] * SS.shape[1]
+            lbx = [-10.] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N) + [0.] * SS.shape[1]
+            ubx = [10.] * (self.n * (self.N + 1)) + [1] * (self.d * self.N) + [1.] * SS.shape[1]
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
+            g = np.array(sol['g'][-self.n * (self.N + 1)-self.n-1:])
+            if np.sum(g) > 0.01:
+                a = 1
         else:
             cost = cost + mtimes(mtimes(x[self.n * self.N:self.n * (self.N + 1)].T, self.Q),
                                  x[self.n * self.N:self.n * (self.N + 1)])  # If SS is not given terminal cost is quadratic
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
-                       "ipopt.barrier_tol_factor": 1}
+                       "ipopt.mu_init": 0.1, "ipopt.mu_min": 1e-11,
+                       "ipopt.barrier_tol_factor": 10}
             nlp = {'x': vertcat(x, u), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
-            lbx = [-np.inf] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N)
-            ubx = [np.inf] * (self.n * (self.N + 1)) + [1] * (self.d * self.N)
+            lbx = [-10.] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N)
+            ubx = [10.] * (self.n * (self.N + 1)) + [1] * (self.d * self.N)
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
-
+            g = np.array(sol['g'][-self.n * (self.N + 1):])
+            if np.sum(g) > 0.01:
+                a = 1
         res = np.array(sol['x'])
+
         xSol = res[0:(self.N + 1) * self.n].reshape((self.N + 1, self.n)).T
         uSol = res[(self.N + 1) * self.n:((self.N + 1) * self.n + self.d * self.N)].reshape(
             (self.N, self.d)).T
