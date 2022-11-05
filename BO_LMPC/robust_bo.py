@@ -48,7 +48,7 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
-    x0 = [4.5, 0.]
+    x0 = [-2., 6.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -63,7 +63,7 @@ def main():
     xt = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-6):
+    while np.dot(xt, xt) > 10 ** (-2):
         st = xcl_feasible[time]
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
@@ -78,8 +78,8 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0, np.sign(xt[1]) * (0.2 + (1-0.2)*np.exp(abs(xt[1]/3)**2))+0.1*x2]
-        xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)] # uncertainties
+        uncertainty = [0, np.sign(xt[1]) * (0.01 + (0.05-0.01)*np.exp(abs(xt[1]/10)**2)) + 0.01*xt[1]]
+        xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
     # ====================================================================================
@@ -96,14 +96,14 @@ def main():
     bayes = True
     totalIterations = 30  # Number of iterations to perform
     n_params = 2
-    theta_bounds = np.array([[0.1, 100.]] * n_params)
+    theta_bounds = np.array([[0.5, 2.]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 3
-    n_iters = 3
+    n_inital_points = 1
+    n_iters = 1
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
@@ -113,9 +113,9 @@ def main():
         start = tim.time()
 
         # bayes opt
-        # theta_bounds[:, 0] = last_params / 2
-        # theta_bounds[:, 1] = last_params * 2
-        # theta_bounds = np.clip(theta_bounds, 0, 100)
+        theta_bounds[:, 0] = last_params / 2
+        theta_bounds[:, 1] = last_params * 2
+        theta_bounds = np.clip(theta_bounds, 0, 100)
         xcls = []
         ucls = []
         xcls_true = []
@@ -138,7 +138,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=True)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -223,7 +223,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     time = 0
     # time Loop (Perform the task until close to the origin)
     # while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
-    for time in range(20):
+    for time in range(50):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
@@ -257,7 +257,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # uncertainty[1] = 0
         # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        xcl_true[-1] = [a + a**3 * 1e-4 + np.random.random()*1e-2 for a in xcl_true[-1]]
+        uncertainty = [0, np.sign(xt[1]) * (0.01 + (0.05 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 
     # Add trajectory to update the safe set and value function

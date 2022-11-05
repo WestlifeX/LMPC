@@ -46,7 +46,7 @@ class FTOCP(object):
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)
         X = polyhedron(X_A, X_b)
-        U_A = np.array([[1.], [-1.]])
+        U_A = np.array([[3.], [-3.]])
         U_b = np.array([1., 1.]).reshape(-1, 1)
         U = polyhedron(U_A, U_b)
         self.constr_x = []
@@ -111,8 +111,8 @@ class FTOCP(object):
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
-            lbx = [-10.] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N) + [0.] * SS.shape[1]
-            ubx = [10.] * (self.n * (self.N + 1)) + [1] * (self.d * self.N) + [1.] * SS.shape[1]
+            lbx = [-10.] * (self.n * (self.N + 1)) + [-3] * (self.d * self.N) + [0.] * SS.shape[1]
+            ubx = [10.] * (self.n * (self.N + 1)) + [3] * (self.d * self.N) + [1.] * SS.shape[1]
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][-self.n * (self.N + 1)-self.n-1:])
             if np.sum(g) > 0.01:
@@ -128,8 +128,8 @@ class FTOCP(object):
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
-            lbx = [-10.] * (self.n * (self.N + 1)) + [-1] * (self.d * self.N)
-            ubx = [10.] * (self.n * (self.N + 1)) + [1] * (self.d * self.N)
+            lbx = [-10.] * (self.n * (self.N + 1)) + [-3] * (self.d * self.N)
+            ubx = [10.] * (self.n * (self.N + 1)) + [3] * (self.d * self.N)
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][-self.n * (self.N + 1):])
             if np.sum(g) > 0.01:
