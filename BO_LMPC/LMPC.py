@@ -32,10 +32,10 @@ class LMPC(object):
         self.last_Qfun = []
     def theta_update(self, theta):
         # theta0, theta1 = theta
-        self.ftocp.Q = np.eye(2) * 10 * np.diag(theta)
+        self.ftocp.Q = self.Q_true * np.diag(theta)
         # self.ftocp.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.ftocp.R = np.eye(1) * theta
-        self.Q = np.eye(2) * 10 * np.diag(theta)
+        self.Q = self.Q_true * np.diag(theta)
         # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.R = np.eye(1) * theta
         self.Qfun = []

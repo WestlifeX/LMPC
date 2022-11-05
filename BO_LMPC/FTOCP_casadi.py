@@ -105,8 +105,8 @@ class FTOCP(object):
             cost = cost + dot(Qfun[0], lambVar)  # Its terminal cost is given by interpolation using \lambda
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 0.1, "ipopt.mu_min": 1e-11,
-                       "ipopt.barrier_tol_factor": 10}
+                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
+                       "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(x, u, lambVar), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
@@ -122,8 +122,8 @@ class FTOCP(object):
                                  x[self.n * self.N:self.n * (self.N + 1)])  # If SS is not given terminal cost is quadratic
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 0.1, "ipopt.mu_min": 1e-11,
-                       "ipopt.barrier_tol_factor": 10}
+                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
+                       "ipopt.barrier_tol_factor": 1}
             nlp = {'x': vertcat(x, u), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))

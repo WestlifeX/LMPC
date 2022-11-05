@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from FTOCP_robust import FTOCP
+from FTOCP_casadi import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
@@ -29,11 +29,13 @@ import time as tim
 
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(2)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
-    Ad = np.array([[1., 1.], [0, 1.]])
-    Bd = np.array([[0.], [1.]])
+    # Ad = np.array([[1.2, 1.5], [0, 1.3]])
+    # Bd = np.array([[0.], [1.]])
+    Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
+    Bd = np.array([[0.048], [0.95]])
     Q = np.eye(Ad.shape[0]) * 10
     R = np.eye(1) * 10
     # A = np.array([[1, 1], [0, 1]])
@@ -46,11 +48,11 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
-    x0 = [4., 0.]
+    x0 = [4.5, 0.]
     # Initialize FTOCP object
-    N_feas = 5
+    N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.01 * Q, R, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -76,7 +78,8 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        xcl_feasible_true[-1] = [a + np.exp(a**2/200)-1 for a in xcl_feasible_true[-1]] # uncertainties
+        uncertainty = [0, np.sign(xt[1]) * (0.2 + (1-0.2)*np.exp(abs(xt[1]/3)**2))+0.1*x2]
+        xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)] # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
     # ====================================================================================
@@ -86,37 +89,33 @@ def main():
     # Initialize LMPC object
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
-    N_LMPC = 3  # horizon length
+    N_LMPC = 3 # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
-    totalIterations = 50  # Number of iterations to perform
+    totalIterations = 30  # Number of iterations to perform
     n_params = 2
-    theta_bounds = np.array([[0.5, 2]] * n_params)
+    theta_bounds = np.array([[0.1, 100.]] * n_params)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 1
-    n_iters = 1
+    n_inital_points = 3
+    n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * n_params).reshape(1, -1)
-    mu_init = 1
-    tau_init = 1e10 - 1
-    tau_s = [tau_init]
-    mu_s = [mu_init]
     times = []
 
     for it in range(0, totalIterations):
         start = tim.time()
 
         # bayes opt
-        theta_bounds[:, 0] = last_params / 2
-        theta_bounds[:, 1] = last_params * 2
-        theta_bounds = np.clip(theta_bounds, 0, 100)
+        # theta_bounds[:, 0] = last_params / 2
+        # theta_bounds[:, 1] = last_params * 2
+        # theta_bounds = np.clip(theta_bounds, 0, 100)
         xcls = []
         ucls = []
         xcls_true = []
@@ -139,8 +138,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5,
-                                         normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=False)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -151,7 +149,7 @@ def main():
                 (idx + 1) ** 2 * n_params * 1e-3 * 100 * np.sqrt(np.log(4 * n_params * 0.01 / 0.01)))
             beta = np.sqrt(beta)
             # beta = 5
-            next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False, prior=last_params)
+            next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
@@ -168,14 +166,7 @@ def main():
             train_y = np.vstack((train_y, new_res))
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), n_restarts_optimizer=5,
-                                             normalize_y=False)
             model.fit(train_x, train_y)
-            # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
-            # res = iters_once(x0, lmpc, Ts, params)
-
-            # lmpc.theta_update([1, 1, 1, 1])
-            # print('theoretical: ', iters_once(x0, lmpc, Ts, params, res=True))
 
 
         theta = train_x[-(n_inital_points + n_iters):][
@@ -231,20 +222,18 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     ucl_true = []
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
-    # for time in range(20):
+    # while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
+    for time in range(20):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
         bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
         # Solve FTOCP
-        try:
-            if SS is not None and Qfun is not None:
-                lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
-            else:
-                lmpc.solve(st, verbose=False)
-        except cvxpy.error.SolverError:
-            return None
+
+        if SS is not None and Qfun is not None:
+            lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
+        else:
+            lmpc.solve(st, verbose=False)
         # Read optimal input
         # Read optimal input
         try:
@@ -268,7 +257,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # uncertainty[1] = 0
         # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        xcl_true[-1] = [a + np.exp(a**2/200)-1 for a in xcl_true[-1]]
+        xcl_true[-1] = [a + a**3 * 1e-4 + np.random.random()*1e-2 for a in xcl_true[-1]]
         time += 1
 
     # Add trajectory to update the safe set and value function

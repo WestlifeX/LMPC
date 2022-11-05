@@ -29,7 +29,7 @@ def opt_acquision(model, bounds, beta,
         if prior is not None:
             point_list = np.vstack((point_list, prior))
         else:
-            point_list = np.vstack((point_list, np.array([1, 1, 1, 1]).reshape(1, -1)))
+            point_list = np.vstack((point_list, np.array([1, 1]).reshape(1, -1)))
         for starting_point in point_list:
 
             res = minimize(ucb,
