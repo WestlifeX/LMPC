@@ -85,7 +85,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
     totalIterations = 50  # Number of iterations to perform
-    n_params = 2
+    n_params = 3
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])
     # run simulation
     # iteration loop

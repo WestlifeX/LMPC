@@ -26,16 +26,19 @@ class LMPC(object):
         self.it = 0
         self.CVX = CVX
         self.Q_true = np.eye(2) * 10
+        self.R_true = np.eye(2) * 10
         self.Qfun_true = []
 
         self.last_SS = []
         self.last_Qfun = []
     def theta_update(self, theta):
         # theta0, theta1 = theta
-        self.ftocp.Q = self.Q_true * np.diag(theta)
+        self.ftocp.Q = self.Q_true * np.diag(theta[:2])
         # self.ftocp.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.ftocp.R = np.eye(1) * theta
-        self.Q = self.Q_true * np.diag(theta)
+        self.Q = self.Q_true * np.diag(theta[:2])
+        self.ftocp.R = self.R_true * theta[2]
+        self.R = self.R_true * theta[2]
         # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.R = np.eye(1) * theta
         self.Qfun = []
@@ -52,10 +55,10 @@ class LMPC(object):
         self.Qfun.append(cost)
 
         if x_true is not None and u_true is not None:
-            cost_true = self.computeCost(x_true, u_true, self.Q_true)
+            cost_true = self.computeCost(x_true, u_true, self.Q_true, self.R_true)
             self.Qfun_true.append(cost_true)
         else:
-            cost_true = self.computeCost(x, u, self.Q_true)
+            cost_true = self.computeCost(x, u, self.Q_true, self.R_true)
             self.Qfun_true.append(cost_true)
 
         # Initialize zVector
@@ -68,10 +71,11 @@ class LMPC(object):
         for i in range(self.it):
             print(self.Qfun_true[i][0])
 
-    def computeCost(self, x, u, Q=None):
+    def computeCost(self, x, u, Q=None, R=None):
         # Compute the cost in a DP like strategy: start from the last point x[len(x)-1] and move backwards
-        if Q is None:
+        if Q is None and R is None:
             Q = self.Q
+            R = self.R
         cost = []
         for i in range(0, len(x)):
             idx = len(x) - 1 - i
