@@ -27,8 +27,8 @@ def main():
     params = get_params()
     Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
     Bd = np.array([[0.048], [0.95]])
-    Q = np.eye(Ad.shape[0]) * 10
-    R = np.eye(1) * 10
+    Q = np.eye(Ad.shape[0]) * 1
+    R = np.eye(1) * 1
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
     # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
@@ -167,7 +167,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2) * 10)[0]
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2) * 1, np.eye(1)*1)[0]
 
 
 if __name__ == "__main__":

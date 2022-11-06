@@ -36,8 +36,8 @@ def main():
     # Bd = np.array([[0.], [1.]])
     Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
     Bd = np.array([[0.048], [0.95]])
-    Q = np.eye(Ad.shape[0]) * 10
-    R = np.eye(1) * 10
+    Q = np.eye(Ad.shape[0]) * 1
+    R = np.eye(1) * 1
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
     # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
@@ -263,7 +263,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
 
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*10, np.eye(1)*10)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*1, np.eye(1)*1)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

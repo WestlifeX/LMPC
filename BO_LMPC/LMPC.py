@@ -25,8 +25,8 @@ class LMPC(object):
         self.R = ftocp.R
         self.it = 0
         self.CVX = CVX
-        self.Q_true = np.eye(2) * 10
-        self.R_true = np.eye(2) * 10
+        self.Q_true = np.eye(2) * 1
+        self.R_true = np.eye(1) * 1
         self.Qfun_true = []
 
         self.last_SS = []
