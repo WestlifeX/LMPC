@@ -82,7 +82,7 @@ class LMPC(object):
             if i == 0:
                 cost = [np.dot(np.dot(x[idx], Q), x[idx])]
             else:
-                cost.append(np.dot(np.dot(x[idx], Q), x[idx]) + np.dot(np.dot(u[idx], self.R), u[idx]) + cost[-1])
+                cost.append(np.dot(np.dot(x[idx], Q), x[idx]) + np.dot(np.dot(u[idx], R), u[idx]) + cost[-1])
 
         # Finally flip the cost to have correct order
         return np.flip(np.array(cost, dtype=object)).tolist()
