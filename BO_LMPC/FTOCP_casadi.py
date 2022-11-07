@@ -18,7 +18,7 @@ class FTOCP(object):
     def __init__(self, N, A, B, Q, R, K, args):
         # Define variables
         self.N = N  # Horizon Length
-
+        self.N_max = 10
         # System Dynamics (x_{k+1} = A x_k + Bu_k)
         self.A = A
         self.B = B
@@ -37,11 +37,11 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.2, 0.2, 0.2, 0.2]).reshape(-1, 1)
+        W_b = np.array([1., 1., 1., 1.]).reshape(-1, 1)
         W = polyhedron(W_A, W_b)
         eps = 1e-5
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
-        _, self.F_list = compute_mRPI(eps, W, self.A, self.B, self.K, self.N)
+        _, self.F_list = compute_mRPI(eps, W, self.A, self.B, self.K, self.N_max)
 
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)
@@ -51,16 +51,16 @@ class FTOCP(object):
         U = polyhedron(U_A, U_b)
         self.constr_x = []
         self.constr_u = []
-        for i in range(self.N+1):
+        for i in range(self.N_max+1):
             self.constr_x.append(X.minkowskiDiff(self.F_list[i]))
             if i > 0:
                 self.constr_x[i].minVrep()
             self.constr_x[i].compute_Hrep()
-            self.len_conx += self.constr_x[i].A.shape[0]
-        for i in range(self.N):
+
+        for i in range(self.N_max):
             self.constr_u.append(U.minkowskiDiff(self.F_list[i].affineMap(self.K)))
             self.constr_u[i].compute_Hrep()
-            self.len_conu += self.constr_u[i].A.shape[0]
+            # self.len_conu += self.constr_u[i].A.shape[0]
 
         a = 1
     def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
@@ -70,7 +70,12 @@ class FTOCP(object):
 			- Qfun: (optional) cost associtated with the state stored in SS. Terminal cost is BarycentrcInterpolation(SS, Qfun)
 		"""
         # Initialize Variables
-        # x = ca.SX.sym('x', self.n, self.N + 1, boolean=True)
+        self.len_conx = 0
+        self.len_conu = 0
+        for i in range(self.N+1):
+            self.len_conx += self.constr_x[i].A.shape[0]
+        for i in range(self.N):
+            self.len_conu += self.constr_u[i].A.shape[0]
         x = MX.sym('x', self.n*(self.N+1))
         u = MX.sym('u', self.d*self.N)
         # State Constraints

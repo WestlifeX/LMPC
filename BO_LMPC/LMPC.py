@@ -39,6 +39,7 @@ class LMPC(object):
         self.Q = self.Q_true * np.diag(theta[:2])
         self.ftocp.R = self.R_true * theta[2]
         self.R = self.R_true * theta[2]
+        self.ftocp.N = int(round(theta[3]))
         # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
         # self.R = np.eye(1) * theta
         self.Qfun = []
