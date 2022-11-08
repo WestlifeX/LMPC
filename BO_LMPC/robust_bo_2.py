@@ -37,7 +37,7 @@ def main():
     Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
     Bd = np.array([[0.048], [0.95]])
     Q = np.eye(Ad.shape[0]) * 1
-    R = np.eye(1) * 1
+    R = np.eye(1) * 10
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
     # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
@@ -63,7 +63,7 @@ def main():
     st = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(st, st) > 10 ** (-2):
+    while np.dot(st, st) > 10 ** (-4):
         st = xcl_feasible[time]
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
@@ -78,7 +78,7 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0, np.sign(xt[1]) * (0.3 + (0.8 - 0.3) * np.exp(abs(xt[1] / 10) ** 2)) + 0.15 * xt[1]]
+        uncertainty = [0, np.sign(xt[1]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
@@ -96,7 +96,7 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 4
-    theta_bounds = np.array([[0.5, 2.]] * (n_params-1) + [[3., 10.]] * 1)
+    theta_bounds = np.array([[0.5, 2.]] * (n_params-1) + [[3., 8.]] * 1)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -113,9 +113,9 @@ def main():
         start = tim.time()
 
         # bayes opt
-        theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 2
-        theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 2
-        theta_bounds = np.clip(theta_bounds, 0, 1000)
+        # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 2
+        # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 2
+        # theta_bounds = np.clip(theta_bounds, 0, 1000)
         xcls = []
         ucls = []
         xcls_true = []
@@ -256,13 +256,13 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # uncertainty[1] = 0
         # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [0, np.sign(xt[1]) * (0.3 + (0.8 - 0.3) * np.exp(abs(xt[1] / 10) ** 2)) + 0.15 * xt[1]]
+        uncertainty = [0, np.sign(xt[1]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*1, np.eye(1)*1)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*1, np.eye(1)*10)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

@@ -26,14 +26,14 @@ class LMPC(object):
         self.it = 0
         self.CVX = CVX
         self.Q_true = np.eye(2) * 1
-        self.R_true = np.eye(1) * 1
+        self.R_true = np.eye(1) * 10
         self.Qfun_true = []
 
         self.last_SS = []
         self.last_Qfun = []
 
-        self.u1 = 0.3
-        self.u2 = 0.1
+        self.u1 = 1e-4
+        self.u2 = 1.
     def theta_update(self, theta):
         # theta0, theta1 = theta
         self.ftocp.Q = self.Q_true * np.diag(theta[:2])
