@@ -29,14 +29,14 @@ import time as tim
 
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(4)
+    np.random.seed(7)
     Ts = 0.1
     params = get_params()
     # Ad = np.array([[1.2, 1.5], [0, 1.3]])
     # Bd = np.array([[0.], [1.]])
     Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
     Bd = np.array([[0.048], [0.95]])
-    Q = np.eye(Ad.shape[0]) * 1
+    Q = np.eye(Ad.shape[0]) * 10
     R = np.eye(1) * 10
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
@@ -52,7 +52,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, Q, 0.1*R, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -95,8 +95,11 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 6
-    theta_bounds = np.array([[0.5, 2.]] * (n_params-1) + [[3., 8.]] * 1 + [[1e-4, 1.], [0.1, 1.]])
+    n_params = 7
+    theta_bounds = np.array([[0.99, 1.], [0.09, 0.1],
+                             [-0.1, -0.09], [0.85, 0.95],
+                             [0.04, 0.05], [0.9, 1.]]
+                            + [[3., 10.]] * 1)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -106,7 +109,7 @@ def main():
     n_iters = 1
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    last_params = np.array([1] * (n_params - 3) + [3, 1e-4, 0.1]).reshape(1, -1)
+    # last_params = np.array([0.995, 0.095, -0.095, 0.900, 0.048, 0.95, 3]).reshape(1, -1)
     times = []
 
     for it in range(0, totalIterations):
@@ -126,7 +129,7 @@ def main():
         train_y = []
         for i in tqdm(range(n_inital_points)):
             lmpc.theta_update(train_x[i].tolist())
-            K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+            K, _, _ = dlqr(lmpc.ftocp.A, lmpc.ftocp.B, Q, R)
             K = -K
             lmpc.ftocp.K = K
             train_obj, xcl, ucl, xcl_true, ucl_true = \
@@ -154,7 +157,7 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = dlqr(Ad, Bd, lmpc.Q, R)
+            K, _, _ = dlqr(lmpc.ftocp.A, lmpc.ftocp.B, Q, R)
             K = -K
             lmpc.ftocp.K = K
             new_res, xcl, ucl, xcl_true, ucl_true = \
@@ -262,7 +265,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
 
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*1, np.eye(1)*10)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2)*10, np.eye(1)*10)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
 import time as ti
 def main():
-    np.random.seed(4)
+    np.random.seed(2)
     Ts = 0.1
     params = get_params()
     linear_model = get_linearized_model(params, Ts)

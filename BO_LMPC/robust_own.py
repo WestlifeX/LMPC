@@ -15,20 +15,21 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-
+from args import Q, R, R_delta
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
 import time as ti
 from control import dlqr
 def main():
-    np.random.seed(1)
+    np.random.seed(2)
     Ts = 0.1
     params = get_params()
-    Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
-    Bd = np.array([[0.048], [0.95]])
-    Q = np.eye(Ad.shape[0]) * 1
-    R = np.eye(1) * 1
+    # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
+    # Bd = np.array([[0.048], [0.95]])
+    Ad = np.array([[1.2, 1.5], [0, 1.3]])
+    Bd = np.array([[0.], [1.]])
+
     # A = np.array([[1, 1], [0, 1]])
     # B = np.array([[0], [1]])
     # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
@@ -39,11 +40,12 @@ def main():
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
-    x0 = [-2., 6.]
+    # x0 = [-2., 6.]
+    x0 = [4., 0.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -69,7 +71,10 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0, np.sign(xt[1]) * (0.01 + (0.05 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
+                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
+                       # 0.1 * (1 - np.cos(xt[1]))]
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]
         time += 1
     # ====================================================================================
@@ -80,7 +85,7 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
@@ -109,7 +114,7 @@ def main():
     np.save('./returns_' + tag + '.npy', returns)
     np.save('./times_npy', times)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, K, params)
+    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
@@ -136,7 +141,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
     time = 0
     # time Loop (Perform the task until close to the origin)
     # while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
-    for time in range(50):
+    for time in range(20):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
@@ -158,7 +163,10 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
         # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [0, np.sign(xt[1]) * (0.01 + (0.05 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
+                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
+                       # 0.1 * (1 - np.cos(xt[1]))]
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 
@@ -167,7 +175,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
-    return lmpc.computeCost(xcl_true, ucl_true, np.eye(2) * 1, np.eye(1)*1)[0]
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0]
 
 
 if __name__ == "__main__":

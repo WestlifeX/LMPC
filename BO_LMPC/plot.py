@@ -15,14 +15,14 @@ file_names = os.listdir('./new_results/')
 # robust_bo: simple bo with 1+1
 data = []
 for name in file_names:
-    if name == 'robust_bo_2.md' or name == 'robust_tvbo_2.md':
+    if name == 'robust_bo_3.md' or name == 'robust_tvbo_3.md' or name == 'robust_own_3.md':
         with open('./new_results/' + name) as f:
             lines = f.readlines()
             lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
             lines = np.array(lines)
             data.append(lines)
 
-        plt.plot(lines[0:], label=name.strip('.md'))
+        plt.plot(lines[0:30], label=name.strip('.md'))
 
 plt.legend()
 plt.show()
