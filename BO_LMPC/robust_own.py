@@ -71,10 +71,10 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
-                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
-                       # 0.1 * (1 - np.cos(xt[1]))]
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[
+                           1] + np.random.randn() * 0.01]
+        uncertainty = np.clip(uncertainty, -0.1, 0.1)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]
         time += 1
     # ====================================================================================
@@ -109,7 +109,7 @@ def main():
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
-
+    print(min(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     np.save('./times_npy', times)
@@ -163,10 +163,10 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
         # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
-                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
-                       # 0.1 * (1 - np.cos(xt[1]))]
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[
+                           1] + np.random.randn() * 0.01]
+        uncertainty = np.clip(uncertainty, -0.1, 0.1)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

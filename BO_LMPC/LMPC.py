@@ -26,7 +26,7 @@ class LMPC(object):
         self.R_delta = ftocp.R_delta
         self.it = 0
         self.CVX = CVX
-        self.Q_true = np.diag([2., 2.])
+        self.Q_true = np.diag([1., 1.])
         self.R_true = np.eye(1) * 1
         self.R_delta_true = np.eye(1) * 1
         self.Qfun_true = []

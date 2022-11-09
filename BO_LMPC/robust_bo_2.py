@@ -78,10 +78,10 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
-                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
-                       # 0.1 * (1 - np.cos(xt[1]))]
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[
+                           1] + np.random.randn() * 0.01]
+        uncertainty = np.clip(uncertainty, -0.1, 0.1)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
@@ -105,8 +105,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 1
-    n_iters = 1
+    n_inital_points = 10
+    n_iters = 10
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params - 1) + [3]).reshape(1, -1)
@@ -192,7 +192,7 @@ def main():
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
-
+    print(min(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
@@ -256,13 +256,10 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
         # uncertainty = xcl[-1] ** 2 * 1e-3
         # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
-        # uncertainty[1] = 0
-        # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])),
-                       # np.sign(xt[0]) * (0.03 + (0.08 - 0.03) * np.exp(abs(xt[0] / 10) ** 2)) + 0.015 * xt[0],
-                       # 0.1 * (1 - np.cos(xt[1]))]
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1]]
+        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
+                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[1] + np.random.randn() * 0.01]
+        uncertainty = np.clip(uncertainty, -0.1, 0.1)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

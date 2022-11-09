@@ -1,4 +1,4 @@
 import numpy as np
-Q = np.diag([2., 2.])
-R = np.eye(1) * 2
+Q = np.diag([1., 1.])
+R = np.eye(1) * 1
 R_delta = np.eye(1) * 1
