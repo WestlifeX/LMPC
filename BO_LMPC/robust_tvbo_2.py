@@ -98,8 +98,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 10
-    n_iters = 10
+    n_inital_points = 3
+    n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params-1) + [3]).reshape(1, -1)
@@ -227,7 +227,7 @@ def main():
 
             model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
                                              alpha=alpha,
-                                             normalize_y=False)
+                                             normalize_y=True)
             model.fit(train_x, train_y)
             # next_sample = opt_acquision(model, theta_bounds, beta=5, ts=False)
             # res = iters_once(x0, lmpc, Ts, params)

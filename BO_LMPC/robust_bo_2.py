@@ -106,8 +106,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 10
-    n_iters = 10
+    n_inital_points = 3
+    n_iters = 3
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params - 1) + [3]).reshape(1, -1)
