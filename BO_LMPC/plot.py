@@ -22,7 +22,7 @@ for name in file_names:
             lines = np.array(lines)
             data.append(lines)
 
-        plt.plot(lines[0:30], label=name.strip('.md'))
+        plt.plot(lines[0:50], label=name.strip('.md'))
 
 plt.legend()
 plt.show()

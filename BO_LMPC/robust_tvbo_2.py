@@ -40,7 +40,7 @@ def main():
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
     # x0 = [-2., 6.]
-    x0 = [4., 0.]
+    x0 = [4., 1.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -52,10 +52,10 @@ def main():
     ucl_feasible = []
     xcl_feasible_true = [x0]
     ucl_feasible_true = []
-    xt = x0
+    st = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(xt, xt) > 10 ** (-2):
+    while np.dot(st, st) > 10 ** (-10):
         st = xcl_feasible[time]
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
@@ -70,10 +70,11 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[
-                           1] + np.random.randn() * 0.01]
-        uncertainty = np.clip(uncertainty, -0.1, 0.1)
+        uncertainty = [np.exp(xt[0]**2/200)-1,
+                       -np.exp(xt[1] ** 2 / 200) + 1]
+                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
+                       #     1]]
+        uncertainty = np.clip(uncertainty, -0.2, 0.2)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
@@ -97,13 +98,13 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 1
-    n_iters = 1
+    n_inital_points = 10
+    n_iters = 10
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params-1) + [3]).reshape(1, -1)
     mu_init = 1
-    tau_init = 1e10 - 1
+    tau_init = 1e10-1
     tau_s = [tau_init]
     mu_s = [mu_init]
     times = []
@@ -122,8 +123,6 @@ def main():
         ucls_true = []
         print("Initializing")
         if it == 0:
-            n_inital_points = 1
-            n_iters = 1
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
             train_y = []
@@ -171,13 +170,14 @@ def main():
             # y_t = np.squeeze(y_t, axis=1)
             train_y = np.vstack([train_y, y_t])
 
+        # if train_x.shape[0] > 20:
+        #     train_x = train_x[-20:, :]
+        #     train_y = train_y[-20:, :]
         alpha = np.ones(train_x.shape[0]) * 1e-10
         for i in range(len(mu_s) - 1):
             alpha[i * (n_inital_points + n_iters):(i + 1) * (n_inital_points + n_iters)] = mu_s[i] / (1 + tau_s[i])
         # alpha[-n_inital_points:] = mu_s[-1] / (1 + tau_s[-1])
-        # if train_x.shape[0] > 10:
-        #     train_x = train_x[-10:, :]
-        #     train_y = train_y[-10:, :]
+
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
                                          alpha=alpha,
@@ -271,7 +271,7 @@ def main():
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
-
+    print(min(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
@@ -302,9 +302,10 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     xcl_true = [x0]
     ucl_true = []
     time = 0
+    st = x0
     # time Loop (Perform the task until close to the origin)
-    # while np.dot(xcl_true[time], xcl_true[time]) > 10 ** (-6):
-    for time in range(20):
+    while np.dot(st, st) > 10 ** (-6):
+    # for time in range(20):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
@@ -337,10 +338,11 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # uncertainty[1] = 0
         # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [0.1 * (xt[0] / 10. - np.sin(xt[0])) + np.random.randn() * 0.01,
-                       np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.01 * xt[
-                           1] + np.random.randn() * 0.01]
-        uncertainty = np.clip(uncertainty, -0.1, 0.1)
+        uncertainty = [np.exp(xt[0]**2/200)-1,
+                       -np.exp(xt[1] ** 2 / 200) + 1]
+                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
+                       #     1]]
+        uncertainty = np.clip(uncertainty, -0.2, 0.2)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

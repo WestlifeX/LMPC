@@ -39,7 +39,7 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.1, 0.1, 0.1, 0.1]).reshape(-1, 1)
+        W_b = np.array([0.2, 0.2, 0.25, 0.25]).reshape(-1, 1)
         W = polyhedron(W_A, W_b)
         eps = 1e-5
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
