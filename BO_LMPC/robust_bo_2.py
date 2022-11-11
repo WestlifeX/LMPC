@@ -244,7 +244,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-
+        if len(xcl) > 100:
+            break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
