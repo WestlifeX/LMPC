@@ -59,11 +59,10 @@ class LMPC(object):
         # self.ftocp.N = int(round(theta[6]))
         # self.u1 = theta[4]
         # self.u2 = theta[5]
-        # self.Q[2:4, 2:4] = 10 * np.eye(2) * np.diag(theta)
-        # self.R = np.eye(1) * theta
-        # self.Qfun = []
-        # for i in range(len(self.SS)):
-        #     self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
+
+        self.Qfun = []
+        for i in range(len(self.SS)):
+            self.Qfun.append(self.computeCost(self.SS[i], self.uSS[i]))
 
     def addTrajectory(self, x, u, x_true=None, u_true=None):
         # Add the feasible trajectory x and the associated input sequence u to the safe set
@@ -105,17 +104,17 @@ class LMPC(object):
             else:
                 if i == len(x) - 1:
                     cost.append(np.dot(np.dot(x[idx], Q), x[idx]) +
-                                np.dot(np.dot(u[idx], R), u[idx]) +
-                                np.dot(np.dot(u[idx], R_delta), u[idx]) +
+                                np.dot(np.dot(u[idx], R), u[idx])[0][0] +
+                                np.dot(np.dot(u[idx], R_delta), u[idx])[0][0] +
                                 cost[-1])
                 else:
                     cost.append(np.dot(np.dot(x[idx], Q), x[idx]) +
-                                np.dot(np.dot(u[idx], R), u[idx]) +
-                                np.dot(np.dot(u[idx] - u[idx - 1], R_delta), u[idx] - u[idx - 1]) +
+                                np.dot(np.dot(u[idx], R), u[idx])[0][0] +
+                                np.dot(np.dot(u[idx] - u[idx - 1], R_delta), u[idx] - u[idx - 1])[0][0] +
                                 cost[-1])
 
         # Finally flip the cost to have correct order
-        return np.flip(np.array(cost, dtype=object)).tolist()
+        return np.flip(cost).tolist()
 
     def solve(self, xt, verbose=False, SS=None, Qfun=None):
         if SS is None:
@@ -125,9 +124,9 @@ class LMPC(object):
         # Build SS and cost matrices used in the ftocp
         # NOTE: it is possible to use a subset of the stored data to reduce computational complexity while having all guarantees on safety and performance improvement
         SS_vector = np.squeeze(
-            np.array(list(itertools.chain.from_iterable(SS)), dtype=object)).T  # From a 3D list to a 2D array
+            np.array(list(itertools.chain.from_iterable(SS)))).T  # From a 3D list to a 2D array
         Qfun_vector = list(itertools.chain.from_iterable(Qfun))
-        Qfun_vector = np.array(Qfun_vector, dtype=object)
+        Qfun_vector = np.array(Qfun_vector)
         Qfun_vector = np.expand_dims(Qfun_vector, 0)
         # Qfun_vector = np.expand_dims(np.array(list(itertools.chain.from_iterable(self.Qfun))),
         # 0)  # From a 2D list to a 1D array

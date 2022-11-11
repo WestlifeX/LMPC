@@ -100,7 +100,7 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 5
-    theta_bounds = np.array([[1., 10.]] * (n_params-1) + [[3., 10.]] * 1)
+    theta_bounds = np.array([[1., 3.]] * (n_params-1) + [[3., 10.]] * 1)
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -149,8 +149,8 @@ def main():
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
             beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
-                   2 * n_params * np.log(
-                (idx + 1) ** 2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 1 / 0.01)))
+                       2 * n_params * np.log(
+                    (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
             beta = np.sqrt(beta)
             # beta = 5
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
