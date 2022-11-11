@@ -19,7 +19,7 @@ file_names = os.listdir('./new_results/')
 # 如上所示的uncertainty，太大的就直接饱和了
 data = []
 for name in file_names:
-    if name == 'robust_bo_4.md' or name == 'robust_tvbo_4.md' or name == 'robust_own_4.md':
+    if name == 'robust_bo_4.md' or name == 'robust_tvbo_4.md':
         with open('./new_results/' + name) as f:
             lines = f.readlines()
             lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]

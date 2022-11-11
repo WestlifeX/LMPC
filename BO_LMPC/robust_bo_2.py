@@ -97,8 +97,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 5
-    n_iters = 5
+    n_inital_points = 10
+    n_iters = 10
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
@@ -244,7 +244,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-        if len(xcl) > 100:
+        if len(xcl) > 1000:
             break
     # Add trajectory to update the safe set and value function
 

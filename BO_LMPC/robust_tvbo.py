@@ -120,7 +120,7 @@ def main():
         print("Initializing")
         objs = []
         if it == 0:
-            n_inital_points = 10
+            n_inital_points = 6
             n_iters = 0
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
@@ -147,7 +147,7 @@ def main():
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
-            n_iters = 10
+            n_iters = 6
             # train_x_temp = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
             #                             size=(n_inital_points, theta_bounds.shape[0]))
             # train_y_temp = []
@@ -172,9 +172,9 @@ def main():
             # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
             # train_x = np.vstack((train_x, train_x_temp))
             # train_y = np.vstack((train_y, train_y_temp))
-        if train_x.shape[0] > 100:
-            train_x = train_x[-100:, :]
-            train_y = train_y[-100:, :]
+        # if train_x.shape[0] > 60:
+        #     train_x = train_x[-60:, :]
+        #     train_y = train_y[-60:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
