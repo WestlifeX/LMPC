@@ -15,13 +15,7 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta
-from botorch.optim import optimize_acqf
-from botorch.acquisition import UpperConfidenceBound
-from gpytorch.means import ConstantMean
-from gpytorch.kernels import MaternKernel
-import gaussian_process as gp
-import kernel as kn
+from args import Q, R, R_delta, compute_uncertainty
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -78,11 +72,7 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [np.exp(xt[0] ** 2 / 200) - 1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-        # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-        #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
@@ -99,7 +89,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 5
+    n_params = 4
     theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
@@ -116,9 +106,6 @@ def main():
     for it in range(0, totalIterations):
         start = tim.time()
         # bayes opt
-        # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
-        # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
-        # theta_bounds = np.clip(theta_bounds, 0, 100)
         xcls = []
         ucls = []
         xcls_true = []
@@ -141,7 +128,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -182,9 +169,6 @@ def main():
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
-
-            # mean_module = model.mean_module
-            # covar_module = model.covar_module
         end = tim.time()
         print('consumed time: ', end - start)
         times.append(end-start)
@@ -255,14 +239,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
-        # uncertainty = xcl[-1] ** 2 * 1e-3
-        # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [np.exp(xt[0] ** 2 / 200) - 1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-        # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-        #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

@@ -15,14 +15,14 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta
+from args import Q, R, R_delta, compute_uncertainty
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
 import time as ti
 from control import dlqr
 def main():
-    np.random.seed(2)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
     # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
@@ -71,11 +71,7 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [np.exp(xt[0] ** 2 / 200) - 1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-        # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-        #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]
         time += 1
     # ====================================================================================
@@ -86,7 +82,7 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, Q, R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
@@ -161,15 +157,8 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
 
-        # uncertainty = np.vstack((np.zeros((2, 1)),
-        #                          np.clip(np.random.randn(2, 1) * 1e-4, -0.01, 0.01)))
-        # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [np.exp(xt[0] ** 2 / 200) - 1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-        # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-        #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

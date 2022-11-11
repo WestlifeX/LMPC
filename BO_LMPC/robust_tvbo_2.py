@@ -103,10 +103,10 @@ def main():
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
-    mu_init = 1
-    tau_init = 1e10-1
-    tau_s = [tau_init]
-    mu_s = [mu_init]
+    # mu_init = 1
+    # tau_init = 1e10-1
+    # tau_s = [tau_init]
+    # mu_s = [mu_init]
     times = []
 
     for it in range(0, totalIterations):

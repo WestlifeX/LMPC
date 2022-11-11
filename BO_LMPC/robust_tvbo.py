@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta
+from args import Q, R, R_delta, compute_uncertainty
 from FTOCP_casadi import FTOCP
 from LMPC import LMPC
 import pdb
@@ -70,11 +70,7 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [np.exp(xt[0]**2/200)-1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-                       #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
@@ -98,7 +94,7 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 2
+    n_inital_points = 5
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
@@ -119,8 +115,6 @@ def main():
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
         # theta_bounds = np.clip(theta_bounds, 0, 100)
-
-
         print("Initializing")
         objs = []
         if it == 0:
@@ -180,16 +174,15 @@ def main():
             train_x = train_x[-50:, :]
             train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.RBF(),
-                                         normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            beta = 1
+            # beta = 1
             # beta = np.sqrt(beta)
-            # beta = 5
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -218,10 +211,8 @@ def main():
             train_y = np.append(train_y, y).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.RBF(),
-                                             normalize_y=False)
+            model = GaussianProcessRegressor(kernel=kernels.RBF())
             model.fit(train_x, train_y)
-
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
         lmpc.theta_update(theta.tolist())
@@ -240,9 +231,6 @@ def main():
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
-
-            # mean_module = model.mean_module
-            # covar_module = model.covar_module
         end = tim.time()
         print('consumed time: ', end - start)
         times.append(end-start)
@@ -317,11 +305,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # uncertainty[1] = 0
         # uncertainty[3] = 0
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [np.exp(xt[0]**2/200)-1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-                       #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
 

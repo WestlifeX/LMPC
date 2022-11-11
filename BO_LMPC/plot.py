@@ -13,9 +13,11 @@ file_names = os.listdir('./new_results/')
 # robust_own: 基础的robust LMPC
 # roubust_tvbo: fine-grained alpha tvbo + LMPC with 1+1
 # robust_bo: simple bo with 1+1
+# 3系列是不加np.sign()的uncertainty，是ok的
+# 4系列是加np.sign()的uncertainty，也是ok的,seed=2,w的界是0.2和0.1
 data = []
 for name in file_names:
-    if name == 'robust_bo_3.md' or name == 'robust_tvbo_3.md' or name == 'robust_own_3.md':
+    if name == 'robust_bo_4.md' or name == 'robust_tvbo_4.md' or name == 'robust_own_4.md':
         with open('./new_results/' + name) as f:
             lines = f.readlines()
             lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
