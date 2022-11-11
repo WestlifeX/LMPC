@@ -40,7 +40,7 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.2, 0.2, 0.2, 0.2]).reshape(-1, 1)
+        W_b = np.array([0.15, 0.15, 0.1, 0.1]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)

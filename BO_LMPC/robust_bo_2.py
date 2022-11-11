@@ -19,11 +19,12 @@ from args import Q, R, R_delta, compute_uncertainty
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
-
+import arguments
 
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(2)
+    args = arguments.get_args()
+    np.random.seed(args.seed)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])

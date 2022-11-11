@@ -21,7 +21,10 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
 import time as ti
 from control import dlqr
+import arguments
 def main():
+    args = arguments.get_args()
+    np.random.seed(args.seed)
     np.random.seed(1)
     Ts = 0.1
     params = get_params()

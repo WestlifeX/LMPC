@@ -4,7 +4,7 @@ import torch
 from scipy.optimize import minimize
 
 def opt_acquision(model, bounds, beta,
-                  ts=True, dt=None, prior=None, random_search=False, n_restarts=3):
+                  ts=True, dt=None, prior=None, random_search=False, n_restarts=10):
     """
     The acqusition function tries to figure out
     which point is most effective/economic to evaluate with the object function
