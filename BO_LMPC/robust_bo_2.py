@@ -100,22 +100,21 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 5
-    theta_bounds = np.array([[1., 3.]] * (n_params-1) + [[3., 10.]] * 1)
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 3
-    n_iters = 3
+    n_inital_points = 5
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    last_params = np.array([1] * (n_params - 1) + [3]).reshape(1, -1)
+    last_params = np.array([1] * (n_params)).reshape(1, -1)
     times = []
 
     for it in range(0, totalIterations):
         start = tim.time()
-
         # bayes opt
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
@@ -142,17 +141,17 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=False)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
-                       2 * n_params * np.log(
-                    (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
-            beta = np.sqrt(beta)
-            # beta = 5
+            # beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
+            #            2 * n_params * np.log(
+            #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
+            # beta = np.sqrt(beta)
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):

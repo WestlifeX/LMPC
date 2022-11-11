@@ -91,18 +91,18 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 5
-    theta_bounds = np.array([[1., 10.]] * (n_params-1) + [[3., 10.]] * 1)
+    n_params = 4
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
     n_inital_points = 2
-    n_iters = 2
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    last_params = np.array([1] * (n_params-1) + [3]).reshape(1, -1)
+    last_params = np.array([1] * (n_params)).reshape(1, -1)
     mu_init = 1
     tau_init = 1e10-1
     tau_s = [tau_init]
@@ -124,6 +124,8 @@ def main():
         print("Initializing")
         objs = []
         if it == 0:
+            n_inital_points = 10
+            n_iters = 0
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
             train_y = []
@@ -135,7 +137,7 @@ def main():
                 lmpc.ftocp.K = K
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
-                objs.append(train_obj[0][0])
+                objs.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
                 xcls_true.append(xcl_true)
@@ -148,42 +150,44 @@ def main():
 
             train_y = np.array(train_y).reshape(-1, 1)
         else:
-            train_x_temp = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-                                        size=(n_inital_points, theta_bounds.shape[0]))
-            train_y_temp = []
-            for i in tqdm(range(n_inital_points)):
-                lmpc.theta_update(train_x_temp[i].tolist())
-                K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
-                K = -K
-                lmpc.ftocp.K = K
-                train_obj, xcl, ucl, xcl_true, ucl_true = \
-                    iters_once(x0, lmpc, Ts, params, K=K)
-                objs.append(train_obj[0][0])
-                xcls.append(xcl)
-                ucls.append(ucl)
-                xcls_true.append(xcl_true)
-                ucls_true.append(ucl_true)
-
-            mu_d = np.mean(objs)
-            sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
-            for i in range(n_inital_points):
-                train_y_temp.append((np.array(objs[i]) - mu_d) / sigma_d)
-
-            train_y_temp = np.array(train_y_temp).reshape(-1, 1)
-            train_x = np.vstack((train_x, train_x_temp))
-            train_y = np.vstack((train_y, train_y_temp))
-        # if train_x.shape[0] > 20:
-        #     train_x = train_x[-20:, :]
-        #     train_y = train_y[-20:, :]
+            n_inital_points = 0
+            n_iters = 10
+            # train_x_temp = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
+            #                             size=(n_inital_points, theta_bounds.shape[0]))
+            # train_y_temp = []
+            # for i in tqdm(range(n_inital_points)):
+            #     lmpc.theta_update(train_x_temp[i].tolist())
+            #     K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+            #     K = -K
+            #     lmpc.ftocp.K = K
+            #     train_obj, xcl, ucl, xcl_true, ucl_true = \
+            #         iters_once(x0, lmpc, Ts, params, K=K)
+            #     objs.append(train_obj)
+            #     xcls.append(xcl)
+            #     ucls.append(ucl)
+            #     xcls_true.append(xcl_true)
+            #     ucls_true.append(ucl_true)
+            #
+            # mu_d = np.mean(objs)
+            # sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
+            # for i in range(n_inital_points):
+            #     train_y_temp.append((np.array(objs[i]) - mu_d) / sigma_d)
+            #
+            # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
+            # train_x = np.vstack((train_x, train_x_temp))
+            # train_y = np.vstack((train_y, train_y_temp))
+        if train_x.shape[0] > 50:
+            train_x = train_x[-50:, :]
+            train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
+        model = GaussianProcessRegressor(kernel=kernels.RBF(),
                                          normalize_y=False)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            beta = 5
+            beta = 1
             # beta = np.sqrt(beta)
             # beta = 5
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
@@ -196,9 +200,10 @@ def main():
             lmpc.ftocp.K = K
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
-            objs.append(new_res[0][0])
+            objs.append(new_res)
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
+
             # recompute y(1:t-1)
             for i in range(n_inital_points+idx):
                 train_y[i-n_inital_points-idx] = (objs[i] - mu_d) / sigma_d
@@ -206,19 +211,32 @@ def main():
             ucls.append(ucl)
             xcls_true.append(xcl_true)
             ucls_true.append(ucl_true)
-            train_y = np.append(train_y, (new_res[0][0]-mu_d)/sigma_d).reshape(-1, 1)
+            if len(objs) == 1:
+                y = 0
+            else:
+                y = (new_res-mu_d)/sigma_d
+            train_y = np.append(train_y, y).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
+            model = GaussianProcessRegressor(kernel=kernels.RBF(),
                                              normalize_y=False)
             model.fit(train_x, train_y)
 
 
-        theta = train_x[np.argmin(train_y[:], axis=0)]
-        lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
-                           ucls[np.argmin(train_y[:], axis=0)[0]],
-                           xcls_true[np.argmin(train_y[:], axis=0)[0]],
-                           ucls_true[np.argmin(train_y[:], axis=0)[0]])
+        theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
+        lmpc.theta_update(theta.tolist())
+        K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+        K = -K
+        lmpc.ftocp.K = K
+        res, xcl, ucl, xcl_true, ucl_true = \
+            iters_once(x0, lmpc, Ts, params, K=K)
+        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
+        # train_y[np.argmin(train_y[:], axis=0)] = res
+
+        # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
+        #                    ucls[np.argmin(train_y[:], axis=0)[0]],
+        #                    xcls_true[np.argmin(train_y[:], axis=0)[0]],
+        #                    ucls_true[np.argmin(train_y[:], axis=0)[0]])
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 

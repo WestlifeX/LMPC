@@ -92,17 +92,17 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 5
-    theta_bounds = np.array([[1., 3.]] * (n_params-1) + [[3., 10.]] * 1)
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 3
-    n_iters = 3
+    n_inital_points = 5
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    last_params = np.array([1] * (n_params-1) + [3]).reshape(1, -1)
+    last_params = np.array([1] * (n_params)).reshape(1, -1)
     mu_init = 1
     tau_init = 1e10-1
     tau_s = [tau_init]
@@ -115,8 +115,6 @@ def main():
             _, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
             lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
         else:
-
-
             # bayes opt
             # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
             # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
@@ -175,16 +173,16 @@ def main():
                 # y_t = np.squeeze(y_t, axis=1)
                 train_y = np.vstack([train_y, y_t])
 
-            # if train_x.shape[0] > 20:
-            #     train_x = train_x[-20:, :]
-            #     train_y = train_y[-20:, :]
+            if train_x.shape[0] > 50:
+                train_x = train_x[-50:, :]
+                train_y = train_y[-50:, :]
             alpha = np.ones(train_x.shape[0]) * 1e-10
             for i in range(len(mu_s) - 1):
                 alpha[i * (n_inital_points + n_iters):(i + 1) * (n_inital_points + n_iters)] = mu_s[i] / (1 + tau_s[i])
             # alpha[-n_inital_points:] = mu_s[-1] / (1 + tau_s[-1])
 
             # model = gp.GaussianProcess(kernel, 0.001)
-            model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
+            model = GaussianProcessRegressor(kernel=kernels.RBF(),
                                              alpha=alpha,
                                              normalize_y=True)
             model.fit(train_x, train_y)
@@ -192,11 +190,11 @@ def main():
             # model, mll = get_model(train_x, train_y)
             print('bayes opt for {} iteration'.format(it + 1))
             for idx in tqdm(range(n_iters)):
-                beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
-                       2 * n_params * np.log(
-                    (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
-                beta = np.sqrt(beta)
-                # beta = 5
+                # beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
+                #        2 * n_params * np.log(
+                #     (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
+                # beta = np.sqrt(beta)
+                beta = 1
                 next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
                 # 避免出现重复数据影响GP的拟合
                 if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -230,7 +228,7 @@ def main():
                 else:
                     alpha = np.ones(train_x.shape[0]) * 1e-10
 
-                model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5),
+                model = GaussianProcessRegressor(kernel=kernels.RBF(),
                                                  alpha=alpha,
                                                  normalize_y=True)
                 model.fit(train_x, train_y)

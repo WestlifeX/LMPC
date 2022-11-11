@@ -44,7 +44,7 @@ class LMPC(object):
         self.R = self.R_true * theta[2]
         self.ftocp.R_delta = self.R_delta_true * theta[3]
         self.R_delta = self.R_delta_true * theta[3]
-        self.ftocp.N = int(round(theta[4]))
+        # self.ftocp.N = int(round(theta[4]))
         # self.Q[0, 1] = theta[3]
         # self.Q[1, 0] = theta[3]
         # self.ftocp.Q[0, 1] = theta[3]
