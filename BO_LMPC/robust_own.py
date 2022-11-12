@@ -25,7 +25,7 @@ import arguments
 def main():
     args = arguments.get_args()
     np.random.seed(args.seed)
-    np.random.seed(1)
+    np.random.seed(5)
     Ts = 0.1
     params = get_params()
     # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
@@ -48,7 +48,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.15 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -59,7 +59,7 @@ def main():
     st = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(st, st) > 10 ** (-10):
+    while np.dot(st, st) > 10 ** (-8):
         st = xcl_feasible[time]
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]

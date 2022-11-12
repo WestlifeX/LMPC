@@ -17,16 +17,18 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-data = []
-for name in file_names:
-    if name == 'robust_bo_4.md' or name == 'robust_tvbo_4.md':
-        with open('./new_results/' + name) as f:
-            lines = f.readlines()
-            lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
-            lines = np.array(lines)
-            data.append(lines)
+for i in range(6):
+    data = []
+    for name in file_names:
+        if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1):
+            with open('./new_results/' + name) as f:
+                lines = f.readlines()
+                lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
+                lines = np.array(lines)
+                y = np.min(lines)
+                data.append(lines)
 
-        plt.plot(lines[0:50], label=name.strip('.md'))
-
-plt.legend()
-plt.show()
+            plt.plot(lines[0:50], label=name.strip('.md'))
+            plt.plot(np.linspace(1, 50, 50), np.ones(50)*y)
+    plt.legend()
+    plt.show()

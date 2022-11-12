@@ -24,7 +24,7 @@ import arguments
 # no fine-grained tvbo, just a simple bo
 def main():
     args = arguments.get_args()
-    np.random.seed(4)
+    np.random.seed(6)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])
@@ -47,7 +47,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.15 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -97,8 +97,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 2
-    n_iters = 2
+    n_inital_points = 5
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
