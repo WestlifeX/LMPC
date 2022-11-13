@@ -56,8 +56,8 @@ class FTOCP(object):
         self.constr_u = []
         for i in range(self.N_max+1):
             self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
-            if i > 0:
-                self.constr_x[i].minVrep()
+            # if i > 0:
+            self.constr_x[i].minVrep()
             self.constr_x[i].compute_Hrep()
 
         for i in range(self.N_max):

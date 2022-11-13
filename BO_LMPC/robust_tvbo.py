@@ -131,6 +131,7 @@ def main():
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
+                # lmpc.ftocp.compute_mrpi()
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
                 objs.append(train_obj)
@@ -193,6 +194,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            # lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             objs.append(new_res)
@@ -221,6 +223,7 @@ def main():
         K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
         lmpc.ftocp.K = K
+        # lmpc.ftocp.compute_mrpi()
         res, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, params, K=K)
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
@@ -244,8 +247,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    K, _, _ = dlqr(Ad, Bd, Q, R)
-    K = -K
+    # K, _, _ = dlqr(Ad, Bd, Q, R)
+    # K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
@@ -266,6 +269,7 @@ def main():
 def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     # for it in range(0, totalIterations):
     # Set initial condition at each iteration
+    Ki = np.array([[-0.52746546, -1.82539112]])
     xcl = [x0]
     ucl = []
     xcl_true = [x0]
@@ -278,7 +282,13 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
-        bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias1 = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        if abs(bias1) < abs(bias2):
+            bias = bias1
+        else:
+            bias = bias2
+
         # Solve FTOCP
         if SS is not None and Qfun is not None:
             lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)

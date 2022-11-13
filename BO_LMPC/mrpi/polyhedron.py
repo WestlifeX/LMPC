@@ -117,7 +117,7 @@ class polyhedron:
     def minVrep(self):
         if not self.hasVrep:
             self.compute_Vrep()
-            self.hasVrep == True
+            self.hasVrep = True
         # in case of 1D vertices or you have only two points (edge)
         if self.vertices.shape[1] == 1 or self.vertices.shape[0] == 2:
             print('you need three 2D vertices to compute the convex hull')

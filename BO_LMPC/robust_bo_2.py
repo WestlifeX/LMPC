@@ -91,7 +91,7 @@ def main():
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 4
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[0.1, 2.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -120,6 +120,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             train_obj, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             train_y.append(train_obj)
@@ -148,6 +149,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)

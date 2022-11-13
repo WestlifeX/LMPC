@@ -59,7 +59,7 @@ def main():
     st = x0
     time = 0
     # time Loop (Perform the task until close to the origin)
-    while np.dot(st, st) > 10 ** (-8):
+    while np.dot(st, st) > 10 ** (-10):
         st = xcl_feasible[time]
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
