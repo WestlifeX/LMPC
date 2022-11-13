@@ -17,18 +17,58 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-for i in range(6):
+N = 3
+N_alg = 3
+all = np.zeros((N_alg, 51))
+all_best = np.zeros((N_alg, 51))
+bo_data = np.zeros((N, 51))
+tlbo_data = np.zeros((N, 51))
+for i in range(1, N+1):
     data = []
     for name in file_names:
-        if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1):
+        if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1) or name == 'robust_own.md':
             with open('./new_results/' + name) as f:
                 lines = f.readlines()
                 lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
                 lines = np.array(lines)
+                current_best = np.zeros_like(lines)
+                vmin = np.inf
+                for j in range(lines.shape[0]):
+                    if lines[j] < vmin:
+                        current_best[j] = lines[j]
+                        vmin = lines[j]
+                    else:
+                        current_best[j] = vmin
                 y = np.min(lines)
-                data.append(lines)
 
-            plt.plot(lines[0:50], label=name.strip('.md'))
-            plt.plot(np.linspace(1, 50, 50), np.ones(50)*y)
-    plt.legend()
-    plt.show()
+                if name == 'robust_bo_{}.md'.format(i + 1):
+                    all[0, :] += lines / N
+                    all_best[0, :] += current_best / N
+                    bo_data[i - 1, :] = current_best
+                elif name == 'robust_tvbo_{}.md'.format(i+1):
+                    all[1, :] += lines / N
+                    all_best[1, :] += current_best / N
+                    tlbo_data[i - 1, :] = current_best
+                else:
+                    all[2, :] += lines / N
+                    all_best[2, :] += current_best / N
+
+    #         plt.plot(lines[0:50], label=name.strip('.md'))
+    #         plt.plot(np.linspace(1, 50, 50), np.ones(50)*y)
+    # plt.legend()
+    # plt.show()
+bo_std = np.std(bo_data, axis=0)
+tlbo_std = np.std(tlbo_data, axis=0)
+
+plt.plot(all[0])
+plt.plot(all[1])
+plt.plot(all[2])
+plt.show()
+plt.plot(all_best[0])
+# plt.errorbar(np.arange(all_best.shape[1]), all_best[0], bo_std, capsize=3)
+plt.fill_between(range(all_best.shape[1]), all_best[0]-bo_std, all_best[0]+bo_std, alpha=0.3)
+plt.plot(all_best[1])
+# plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
+plt.fill_between(range(all_best.shape[1]), all_best[1]-tlbo_std, all_best[1]+tlbo_std, alpha=0.3)
+plt.plot(all_best[2])
+plt.show()
