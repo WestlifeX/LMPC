@@ -250,6 +250,8 @@ def main():
     print(min(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
+    np.save('tvbo_3_xcl_true.npy', xcls_true[-1])
+    np.save('tvbo_3_ucl_true.npy', ucls_true[-1])
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
     # K, _, _ = dlqr(Ad, Bd, Q, R)
     # K = -K
@@ -307,7 +309,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-        if abs(ut) > 1:
+        if abs(ut) > 1 or abs(xt[0]) > 10 or abs(xt[1]) > 10:
             a = 1
             # raise AttributeError
         # Apply optimal input to the system
