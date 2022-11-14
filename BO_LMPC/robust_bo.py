@@ -24,7 +24,7 @@ import arguments
 # no fine-grained tvbo, just a simple bo
 def main():
     args = arguments.get_args()
-    np.random.seed(6)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])
@@ -38,6 +38,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
+    # K = np.array([1.7, 3.3]).reshape(1, -1)
+    # K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition
@@ -120,6 +122,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             train_obj, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             train_y.append(train_obj)
@@ -148,6 +151,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)
@@ -181,8 +185,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    K, _, _ = dlqr(Ad, Bd, Q, R)
-    K = -K
+    # K, _, _ = dlqr(Ad, Bd, Q, R)
+    # K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
@@ -231,7 +235,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-
+        if abs(ut) > 1:
+            a = 1
         # Apply optimal input to the system
         ucl_true.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步

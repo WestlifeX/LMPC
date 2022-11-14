@@ -24,7 +24,7 @@ import arguments
 # no fine-grained tvbo, just a simple bo
 def main():
     args = arguments.get_args()
-    np.random.seed(2)
+    np.random.seed(3)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])

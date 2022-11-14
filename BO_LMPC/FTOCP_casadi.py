@@ -7,6 +7,7 @@ from objective_functions_lqr import inv_pendulum, get_params
 from casadi import *
 from mrpi.polyhedron import polyhedron, plot_polygon_list
 from mrpi.mRPI_set import compute_mRPI
+from scipy.spatial import ConvexHull
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
 	Methods:
@@ -39,7 +40,7 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.15, 0.15, 0.1, 0.1]).reshape(-1, 1)
+        W_b = np.array([0.05, 0.05, 0.05, 0.05]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)
@@ -56,18 +57,34 @@ class FTOCP(object):
         self.s = len(self.F_list)
         for i in range(self.N+1):
             if i < self.s:
-                self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
+                self.F_list[i].minVrep()
+                self.constr_x.append(self.X.minkowskiDiff(self.F_list[i]))
             else:
+                self.mrpi.minVrep()
                 self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
             # if i > 0:
             self.constr_x[i].minVrep()
-            self.constr_x[i].compute_Hrep()
+            try:
+                self.constr_x[i].vertices = np.round(self.constr_x[i].vertices, 3)
+                self.constr_x[i].compute_Hrep()
+            except RuntimeError:
+                self.constr_x[i].vertices = np.round(self.constr_x[i].vertices)
+                self.constr_x[i].compute_Hrep()
+                a = 1
 
         for i in range(self.N):
             if i < self.s:
-                self.constr_u.append(self.U.minkowskiDiff(self.mrpi.affineMap(self.K)))
+                Kx = self.F_list[0].affineMap(self.K)
+                # 防止错误的顶点误导
+                Kx.vertices = np.array([np.max(Kx.vertices), -np.max(Kx.vertices)]).reshape(-1, 1)
+                self.constr_u.append(self.U.minkowskiDiff(Kx))
             else:
-                self.constr_u.append(self.U.minkowskiDiff(self.mrpi.affineMap(self.K)))
+                Kx = self.mrpi.affineMap(self.K)
+                # 防止错误的顶点误导
+                Kx.vertices = np.array([np.max(Kx.vertices), -np.max(Kx.vertices)]).reshape(-1, 1)
+                self.constr_u.append(self.U.minkowskiDiff(Kx))
+
+            self.constr_u[i].vertices = np.round(self.constr_u[i].vertices, 3)
             self.constr_u[i].compute_Hrep()
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
 
@@ -84,8 +101,10 @@ class FTOCP(object):
 
         self.len_conx = 0
         self.len_conu = 0
+
         for i in range(self.N+1):
             self.len_conx += self.constr_x[i].A.shape[0]
+
         for i in range(self.N):
             self.len_conu += self.constr_u[i].A.shape[0]
         x = MX.sym('x', self.n*(self.N+1))
@@ -98,7 +117,7 @@ class FTOCP(object):
         for i in range(self.N):
             constraints = vertcat(constraints, mtimes(self.constr_u[i].A,
                                                       u[self.d * i:self.d * (i + 1)])-self.constr_u[i].b)
-        constraints = vertcat(constraints, x[:self.n]-np.array(x0))
+        # constraints = vertcat(constraints, x[:self.n]-np.array(x0))
         cost = 0
         for i in range(self.N):
             constraints = vertcat(constraints,
@@ -129,13 +148,20 @@ class FTOCP(object):
                 cons = self.X.minkowskiDiff(self.mrpi)
             cons.minVrep()
             if not cons.hasHrep:
-                cons.compute_Hrep()
+                try:
+                    cons.vertices = np.round(cons.vertices, 3)
+                    cons.compute_Hrep()
+                except RuntimeError:
+                    cons.vertices = np.round(cons.vertices)
+                    cons.compute_Hrep()
             for i in range(SS.shape[1]):
                 if cons.contains(SS[:, i]):
                     SS_.append(SS[:, i].tolist())
                     Qfun_.append(Qfun[0, i])
             SS_ = np.array(SS_).T
             Qfun_ = np.array(Qfun_).reshape(1, -1)
+            # SS_ = SS.copy()
+            # Qfun_ = Qfun.copy()
             lambVar = MX.sym('lam', SS_.shape[1])
             # Terminal Constraint if SS not empty --> enforce the terminal constraint
             for i in range(self.n):
@@ -145,36 +171,38 @@ class FTOCP(object):
             # Terminal cost if SS not empty
             cost = cost + dot(Qfun_[0], lambVar)  # Its terminal cost is given by interpolation using \lambda
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
-                       "ipopt.mu_strategy": "adaptive",
-                       "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
-                       "ipopt.barrier_tol_factor": 1}
+                       "ipopt.mu_strategy": "adaptive", "ipopt.dual_inf_tol":1e-10,
+                       "ipopt.acceptable_dual_inf_tol": 1, "ipopt.theta_max_fact": 0.9,
+                        "ipopt.constr_viol_tol": 1e-10, "ipopt.acceptable_constr_viol_tol": 1e-5}
             nlp = {'x': vertcat(x, u, lambVar), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
-            lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
-            ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
-            lbx = [-10., -10.] * int(self.n/2 * (self.N + 1)) + [-1.] * (self.d * self.N) + [0.] * SS_.shape[1]
-            ubx = [10., 10.] * int(self.n/2 * (self.N + 1)) + [1.] * (self.d * self.N) + [1.] * SS_.shape[1]
+            lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0.] * (self.n * (self.N)) + [-0.] * self.n + [0] * 1
+            ubg = [0]*(self.len_conx + self.len_conu) + [0.] * (self.n * (self.N)) + [0.] * self.n + [0] * 1
+            lbx = [x0[0], x0[1]] + [-10., -10.] * int(self.n/2 * (self.N)) + [-1.] * (self.d * self.N) + [0.] * SS_.shape[1]
+            ubx = [x0[0], x0[1]] + [10., 10.] * int(self.n/2 * (self.N)) + [1.] * (self.d * self.N) + [1.] * SS_.shape[1]
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
-            g = np.array(sol['g'][-self.n * (self.N + 1)-self.n-1:])
-            if np.sum(g) > 0.01:
+            g = np.array(sol['g'][self.len_conx+self.len_conu:self.len_conx+self.len_conu+self.n*(self.N)])
+            if np.sum(g) > 0.001:
                 a = 1
+                # return 0
         else:
             cost = cost + mtimes(mtimes(x[self.n * self.N:self.n * (self.N + 1)].T, self.Q),
                                  x[self.n * self.N:self.n * (self.N + 1)])  # If SS is not given terminal cost is quadratic
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
                        "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
-                       "ipopt.barrier_tol_factor": 1}
+                       "ipopt.barrier_tol_factor": 1, "ipopt.gamma_theta": 0.01}
             nlp = {'x': vertcat(x, u), 'f': cost, 'g': constraints}
             solver = nlpsol('solver', 'ipopt', nlp, options)
-            lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
-            ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1))
-            lbx = [-10., -10.] * int(self.n/2 * (self.N + 1)) + [-1.] * (self.d * self.N)
-            ubx = [10., 10.] * int(self.n/2 * (self.N + 1)) + [1.] * (self.d * self.N)
+            lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N))
+            ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N))
+            lbx = [x0[0], x0[1]] + [-10., -10.] * int(self.n/2 * (self.N)) + [-1.] * (self.d * self.N)
+            ubx = [x0[0], x0[1]] + [10., 10.] * int(self.n/2 * (self.N)) + [1.] * (self.d * self.N)
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][-self.n * (self.N + 1):])
-            if np.sum(g) > 0.01:
+            if np.sum(g) > 0.001:
                 a = 1
+                # return 0
         res = np.array(sol['x'])
 
         xSol = res[0:(self.N + 1) * self.n].reshape((self.N + 1, self.n)).T
@@ -182,7 +210,7 @@ class FTOCP(object):
             (self.N, self.d)).T
         self.xPred = xSol
         self.uPred = uSol
-
+        return 1
         # Store the open-loop predicted trajectory
 
     def model(self, x, u):

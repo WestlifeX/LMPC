@@ -24,7 +24,7 @@ import time as tim
 
 def main():
     args = arguments.get_args()
-    np.random.seed(5)
+    np.random.seed(2)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])
@@ -37,7 +37,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
-    # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
+    # K = np.array([1.7, 3.3]).reshape(1, -1)
+    # K = -K
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
@@ -95,7 +96,6 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-
     n_inital_points = 5
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
@@ -131,6 +131,8 @@ def main():
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
+                lmpc.ftocp.compute_mrpi()
+
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
                 objs.append(train_obj)
@@ -172,9 +174,9 @@ def main():
             # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
             # train_x = np.vstack((train_x, train_x_temp))
             # train_y = np.vstack((train_y, train_y_temp))
-        if train_x.shape[0] > 100:
-            train_x = train_x[-100:, :]
-            train_y = train_y[-100:, :]
+        if train_x.shape[0] > 50:
+            train_x = train_x[-50:, :]
+            train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
@@ -193,8 +195,12 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
-            new_res, xcl, ucl, xcl_true, ucl_true = \
-                iters_once(x0, lmpc, Ts, params, K=K)
+            lmpc.ftocp.compute_mrpi()
+            try:
+                new_res, xcl, ucl, xcl_true, ucl_true = \
+                    iters_once(x0, lmpc, Ts, params, K=K)
+            except AttributeError:
+                a = 1
             objs.append(new_res)
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
@@ -221,6 +227,7 @@ def main():
         K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
         lmpc.ftocp.K = K
+        lmpc.ftocp.compute_mrpi()
         res, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, params, K=K)
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
@@ -244,8 +251,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    K, _, _ = dlqr(Ad, Bd, Q, R)
-    K = -K
+    # K, _, _ = dlqr(Ad, Bd, Q, R)
+    # K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
@@ -266,6 +273,7 @@ def main():
 def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     # for it in range(0, totalIterations):
     # Set initial condition at each iteration
+    Ki = np.array([[-0.52746546, -1.82539112]])
     xcl = [x0]
     ucl = []
     xcl_true = [x0]
@@ -278,7 +286,13 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
-        bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias1 = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0] + 1e3
+        if abs(bias1) < abs(bias2):
+            bias = bias1
+        else:
+            bias = bias2
+
         # Solve FTOCP
         if SS is not None and Qfun is not None:
             lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
@@ -293,7 +307,9 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-
+        if abs(ut) > 1:
+            a = 1
+            # raise AttributeError
         # Apply optimal input to the system
         ucl_true.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
@@ -310,7 +326,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-
+        if len(xcl) > 1000:
+            break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true

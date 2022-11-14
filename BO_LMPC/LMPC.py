@@ -133,10 +133,13 @@ class LMPC(object):
 
         # Solve the FTOCP.
         # try:
-        self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
+        res = self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
         # except cvxpy.error.SolverError:
         #     print('solver error')
-
+        if res == 0:
+            self.xPred = self.xPred[1:, ]
+            self.uPred = self.uPred[1:, ]
+        else:
         # Update predicted trajectory
-        self.xPred = self.ftocp.xPred
-        self.uPred = self.ftocp.uPred
+            self.xPred = self.ftocp.xPred
+            self.uPred = self.ftocp.uPred

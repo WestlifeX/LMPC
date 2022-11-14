@@ -24,7 +24,7 @@ import time as tim
 
 def main():
     args = arguments.get_args()
-    np.random.seed(6)
+    np.random.seed(1)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])
@@ -131,11 +131,8 @@ def main():
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
-                if i == 6:
-                    a = 1
                 lmpc.ftocp.compute_mrpi()
-                if i == 6:
-                    lmpc.ftocp.constr_x[0].compute_Vrep()
+
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
                 objs.append(train_obj)
@@ -177,9 +174,9 @@ def main():
             # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
             # train_x = np.vstack((train_x, train_x_temp))
             # train_y = np.vstack((train_y, train_y_temp))
-        if train_x.shape[0] > 100:
-            train_x = train_x[-100:, :]
-            train_y = train_y[-100:, :]
+        if train_x.shape[0] > 50:
+            train_x = train_x[-50:, :]
+            train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
@@ -199,8 +196,11 @@ def main():
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
-            new_res, xcl, ucl, xcl_true, ucl_true = \
-                iters_once(x0, lmpc, Ts, params, K=K)
+            try:
+                new_res, xcl, ucl, xcl_true, ucl_true = \
+                    iters_once(x0, lmpc, Ts, params, K=K)
+            except AttributeError:
+                a = 1
             objs.append(new_res)
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
@@ -326,7 +326,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-
+        if len(xcl) > 1000:
+            break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
