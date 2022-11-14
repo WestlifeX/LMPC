@@ -39,6 +39,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
+    # K = np.array([1.7, 3.3]).reshape(1, -1)
+    # K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition

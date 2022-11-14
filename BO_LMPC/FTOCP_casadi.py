@@ -5,7 +5,7 @@ from cvxpy import *
 from scipy.integrate import odeint
 from objective_functions_lqr import inv_pendulum, get_params
 from casadi import *
-from mrpi.polyhedron import polyhedron
+from mrpi.polyhedron import polyhedron, plot_polygon_list
 from mrpi.mRPI_set import compute_mRPI
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
@@ -18,7 +18,6 @@ class FTOCP(object):
     def __init__(self, N, A, B, Q, R, R_delta, K, args):
         # Define variables
         self.N = N  # Horizon Length
-        self.N_max = 10
         # System Dynamics (x_{k+1} = A x_k + Bu_k)
         # self.A_true = np.array([[0.995, 0.095], [-0.095, 0.900]])
         # self.B_true = np.array([[0.048], [0.95]])
@@ -51,17 +50,24 @@ class FTOCP(object):
         self.compute_mrpi()
 
     def compute_mrpi(self):
-        self.mrpi, self.F_list = compute_mRPI(1e-5, self.W, self.A, self.B, self.K, self.N_max)
+        self.mrpi, self.F_list = compute_mRPI(1e-10, self.W, self.A, self.B, self.K)
         self.constr_x = []
         self.constr_u = []
-        for i in range(self.N_max+1):
-            self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
+        self.s = len(self.F_list)
+        for i in range(self.N+1):
+            if i < self.s:
+                self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
+            else:
+                self.constr_x.append(self.X.minkowskiDiff(self.mrpi))
             # if i > 0:
             self.constr_x[i].minVrep()
             self.constr_x[i].compute_Hrep()
 
-        for i in range(self.N_max):
-            self.constr_u.append(self.U.minkowskiDiff(self.mrpi.affineMap(self.K)))
+        for i in range(self.N):
+            if i < self.s:
+                self.constr_u.append(self.U.minkowskiDiff(self.mrpi.affineMap(self.K)))
+            else:
+                self.constr_u.append(self.U.minkowskiDiff(self.mrpi.affineMap(self.K)))
             self.constr_u[i].compute_Hrep()
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
 
@@ -113,14 +119,31 @@ class FTOCP(object):
         # SS的shape应该是 n × SS中点的个数
         # 如果SS是None，末项就是简单的二次型，否则是SS中各个点value的加权和
         if SS is not None:
-            lambVar = MX.sym('lam', SS.shape[1])
+
+            # K改变之后,mrpi随之改变,所以SS里面可能存在不属于X-Z的元素
+            SS_ = []
+            Qfun_ = []
+            if self.N+1 <= self.s:
+                cons = self.X.minkowskiDiff(self.mrpi)
+            else:
+                cons = self.X.minkowskiDiff(self.mrpi)
+            cons.minVrep()
+            if not cons.hasHrep:
+                cons.compute_Hrep()
+            for i in range(SS.shape[1]):
+                if cons.contains(SS[:, i]):
+                    SS_.append(SS[:, i].tolist())
+                    Qfun_.append(Qfun[0, i])
+            SS_ = np.array(SS_).T
+            Qfun_ = np.array(Qfun_).reshape(1, -1)
+            lambVar = MX.sym('lam', SS_.shape[1])
             # Terminal Constraint if SS not empty --> enforce the terminal constraint
             for i in range(self.n):
-                constraints = vertcat(constraints, x[self.n * self.N + i] - dot(SS[i], lambVar))
-            constraints = vertcat(constraints, dot(np.ones(SS.shape[1]), lambVar) - 1)
+                constraints = vertcat(constraints, x[self.n * self.N + i] - dot(SS_[i], lambVar))
+            constraints = vertcat(constraints, dot(np.ones(SS_.shape[1]), lambVar) - 1)
             # constraints = vertcat(constraints, lambVar - 0)
             # Terminal cost if SS not empty
-            cost = cost + dot(Qfun[0], lambVar)  # Its terminal cost is given by interpolation using \lambda
+            cost = cost + dot(Qfun_[0], lambVar)  # Its terminal cost is given by interpolation using \lambda
             options = {"verbose": False, "ipopt.print_level": 0, "print_time": 0,
                        "ipopt.mu_strategy": "adaptive",
                        "ipopt.mu_init": 1e-5, "ipopt.mu_min": 1e-15,
@@ -129,8 +152,8 @@ class FTOCP(object):
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N + 1)) + [0] * self.n + [0] * 1
-            lbx = [-10., -10.] * int(self.n/2 * (self.N + 1)) + [-1.] * (self.d * self.N) + [0.] * SS.shape[1]
-            ubx = [10., 10.] * int(self.n/2 * (self.N + 1)) + [1.] * (self.d * self.N) + [1.] * SS.shape[1]
+            lbx = [-10., -10.] * int(self.n/2 * (self.N + 1)) + [-1.] * (self.d * self.N) + [0.] * SS_.shape[1]
+            ubx = [10., 10.] * int(self.n/2 * (self.N + 1)) + [1.] * (self.d * self.N) + [1.] * SS_.shape[1]
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][-self.n * (self.N + 1)-self.n-1:])
             if np.sum(g) > 0.01:

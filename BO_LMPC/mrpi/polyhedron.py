@@ -48,7 +48,7 @@ class polyhedron:
             self.dim = _rays.shape[1]
 
     def construct_cdd_Hpolyhedron(self):
-        if self.Aeq == [] and self.beq == []:
+        if self.Aeq == [] and self.beq == [] or self.Aeq.shape[0] == 0 and self.beq.shape[0] == 0:
             mat = cddMatrix(hstack([self.b, -self.A]), number_type='float')
         else:
             mat = cddMatrix(hstack([vstack([self.b, self.beq]),
@@ -249,8 +249,8 @@ class polyhedron:
 
     def plot_polygon(self, alpha=.4, color='g', linestyle='solid', fill=True,
                      linewidth=None, title="outer approximation of mRPI set"):
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
+        # plt.rc('text', usetex=False)
+        # plt.rc('font', family='serif')
         if not self.hasVrep:
             self.compute_Vrep()
         points = self.vertices
@@ -285,8 +285,8 @@ class polyhedron:
             ax.relim()
             ax.grid(color=(0, 0, 0), linestyle='--', linewidth=0.3)
             ax.set_title(title)
-            plt.xlabel('$c\,(m)$', fontsize='19')
-            plt.ylabel('$\dot{c}\,(\frac{m}{s})$', fontsize='19')
+            plt.xlabel('c\,(m)', fontsize='19')
+            plt.ylabel('\dot{c}\,({m}/{s})', fontsize='19')
             plt.show()
         return
 
@@ -310,8 +310,8 @@ def plot_polygon_list(list_of_polygons, color='green', linestyle='solid',
         figure.canvas.draw()
         figure.show()
         figure.canvas.flush_events()
-    plt.xlabel('c (m)', usetex=True, fontsize='19')
-    plt.ylabel('$\dot{c}$ (m/s)', usetex=True, fontsize='19')
+    plt.xlabel('c (m)', fontsize='19')
+    plt.ylabel('$\dot{c}$ (m/s)', fontsize='19')
     # plt.legend()
 
     return

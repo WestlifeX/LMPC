@@ -38,6 +38,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
+    K = np.array([1.7, 3.3]).reshape(1, -1)
+    K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition
@@ -117,10 +119,10 @@ def main():
         train_y = []
         for i in tqdm(range(n_inital_points)):
             lmpc.theta_update(train_x[i].tolist())
-            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
-            K = -K
-            lmpc.ftocp.K = K
-            lmpc.ftocp.compute_mrpi()
+            # K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+            # K = -K
+            # lmpc.ftocp.K = K
+            # lmpc.ftocp.compute_mrpi()
             train_obj, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             train_y.append(train_obj)
@@ -146,10 +148,10 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
-            K = -K
-            lmpc.ftocp.K = K
-            lmpc.ftocp.compute_mrpi()
+            # K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+            # K = -K
+            # lmpc.ftocp.K = K
+            # lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)
@@ -183,8 +185,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    K, _, _ = dlqr(Ad, Bd, Q, R)
-    K = -K
+    # K, _, _ = dlqr(Ad, Bd, Q, R)
+    # K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred

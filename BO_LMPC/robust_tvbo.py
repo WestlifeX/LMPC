@@ -37,7 +37,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
-    # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
+    # K = np.array([1.7, 3.3]).reshape(1, -1)
+    # K = -K
     print("Computing a first feasible trajectory")
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
@@ -95,7 +96,6 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-
     n_inital_points = 5
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
@@ -131,7 +131,11 @@ def main():
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
-                # lmpc.ftocp.compute_mrpi()
+                if i == 6:
+                    a = 1
+                lmpc.ftocp.compute_mrpi()
+                if i == 6:
+                    lmpc.ftocp.constr_x[0].compute_Vrep()
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
                 objs.append(train_obj)
@@ -194,7 +198,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
-            # lmpc.ftocp.compute_mrpi()
+            lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             objs.append(new_res)
@@ -223,7 +227,7 @@ def main():
         K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
         lmpc.ftocp.K = K
-        # lmpc.ftocp.compute_mrpi()
+        lmpc.ftocp.compute_mrpi()
         res, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, params, K=K)
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
@@ -283,7 +287,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         st = xcl[time]
         xt = xcl_true[time]
         bias1 = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
-        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0] + 1e3
         if abs(bias1) < abs(bias2):
             bias = bias1
         else:
@@ -303,7 +307,9 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-
+        if abs(ut) > 1:
+            a = 1
+            # raise AttributeError
         # Apply optimal input to the system
         ucl_true.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
