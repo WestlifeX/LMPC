@@ -143,7 +143,7 @@ class FTOCP(object):
             SS_ = []
             Qfun_ = []
             if self.N+1 <= self.s:
-                cons = self.X.minkowskiDiff(self.mrpi)
+                cons = self.X.minkowskiDiff(self.F_list[self.N])
             else:
                 cons = self.X.minkowskiDiff(self.mrpi)
             cons.minVrep()

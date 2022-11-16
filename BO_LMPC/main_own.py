@@ -124,6 +124,7 @@ def main():
     times = []
     for it in range(0, totalIterations):
         start = ti.time()
+        vertices = []
         if not bayes:
             # pass
             iters_once(x0, lmpc, Ts, params)
@@ -211,6 +212,7 @@ def main():
         print('time: ', end - start)
         times.append(end-start)
         returns.append(lmpc.Qfun_true[it][0])
+
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================

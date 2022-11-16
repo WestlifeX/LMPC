@@ -112,6 +112,7 @@ def main():
     ucls_true = []
     for it in range(0, totalIterations):
         start = tim.time()
+        vertices = []
 
         # bayes opt
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
@@ -223,6 +224,7 @@ def main():
             model.fit(train_x, train_y)
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
+        # theta = train_x[:][np.argmin(train_y[:], axis=0)[0]]
         lmpc.theta_update(theta.tolist())
         K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
@@ -244,6 +246,10 @@ def main():
         print('consumed time: ', end - start)
         times.append(end-start)
         returns.append(lmpc.Qfun_true[it][0])
+        # 存一下每次迭代最好的那个点的tube，画个图
+        for i in range(len(lmpc.ftocp.F_list)):
+            vertices.append(lmpc.ftocp.F_list[i].vertices)
+        np.save('./vertices/tvbo_1/vertices_{}.npy'.format(it), vertices)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================

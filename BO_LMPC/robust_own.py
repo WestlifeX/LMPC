@@ -101,6 +101,7 @@ def main():
     times = []
     for it in range(0, totalIterations):
         start = ti.time()
+        vertices = []
         iters_once(x0, lmpc, Ts, params, K=K)
         # if not bayes:
 
@@ -108,6 +109,10 @@ def main():
         print('time: ', end - start)
         times.append(end-start)
         returns.append(lmpc.Qfun_true[it][0])
+        # 存一下每次迭代最好的那个点的tube，画个图
+        for i in range(len(lmpc.ftocp.F_list)):
+            vertices.append(lmpc.ftocp.F_list[i].vertices)
+        np.save('./vertices/own/vertices_{}.npy'.format(it), vertices)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
