@@ -17,7 +17,7 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-N = 3
+N = 5
 N_alg = 4
 all = np.zeros((N_alg, 51))
 all_best = np.zeros((N_alg, 51))
@@ -78,9 +78,9 @@ plt.plot(all_best[1], label='tvbo')
 plt.fill_between(range(all_best.shape[1]), all_best[1]-tlbo_std, all_best[1]+tlbo_std, alpha=0.3)
 plt.plot(all_best[2], label='lmpc')
 
-plt.plot(all_best[3], label='tvbo all')
+# plt.plot(all_best[3], label='tvbo all')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
-plt.fill_between(range(all_best.shape[1]), all_best[3]-tlbo_all_std, all_best[3]+tlbo_all_std, alpha=0.3)
+# plt.fill_between(range(all_best.shape[1]), all_best[3]-tlbo_all_std, all_best[3]+tlbo_all_std, alpha=0.3)
 
 plt.xlabel('Iterations')
 plt.ylabel('Cost')

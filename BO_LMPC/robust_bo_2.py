@@ -65,7 +65,7 @@ def main():
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
 
-        ftocp_for_mpc.solve(st, verbose=False)  # Solve FTOCP
+        ftocp_for_mpc.solve(st, time=time, verbose=False)  # Solve FTOCP
 
         vt = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(vt)
@@ -79,6 +79,8 @@ def main():
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
+        if time >= 50:
+            break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -223,9 +225,9 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Solve FTOCP
 
         if SS is not None and Qfun is not None:
-            lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
+            lmpc.solve(st, time=time, verbose=False, SS=SS, Qfun=Qfun)
         else:
-            lmpc.solve(st, verbose=False)
+            lmpc.solve(st, time=time, verbose=False)
         # Read optimal input
         # Read optimal input
         try:
@@ -249,7 +251,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-        if len(xcl) > 1000:
+        if time >= 50:
             break
     # Add trajectory to update the safe set and value function
 

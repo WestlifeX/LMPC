@@ -40,7 +40,7 @@ class FTOCP(object):
         self.len_conx = 0
         self.len_conu = 0
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        W_b = np.array([0.05, 0.05, 0.05, 0.05]).reshape(-1, 1)
+        W_b = np.array([0.03, 0.03, 0.03, 0.03]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([10., 10., 10., 10.]).reshape(-1, 1)
@@ -51,11 +51,13 @@ class FTOCP(object):
         self.compute_mrpi()
 
     def compute_mrpi(self):
-        self.mrpi, self.F_list = compute_mRPI(1e-10, self.W, self.A, self.B, self.K)
+        # 计算60个F_list，但在MPC里50步就终止
+        self.mrpi, self.F_list = compute_mRPI(1e-10, self.W, self.A, self.B, self.K, 60)
         self.constr_x = []
         self.constr_u = []
         self.s = len(self.F_list)
-        for i in range(self.N+1):
+        # 之所以s+1是要把最后一个留给mrpi
+        for i in range(self.s+1):
             if i < self.s:
                 self.F_list[i].minVrep()
                 self.constr_x.append(self.X.minkowskiDiff(self.F_list[i]))
@@ -72,9 +74,9 @@ class FTOCP(object):
                 self.constr_x[i].compute_Hrep()
                 a = 1
 
-        for i in range(self.N):
+        for i in range(self.s+1):
             if i < self.s:
-                Kx = self.F_list[0].affineMap(self.K)
+                Kx = self.F_list[i].affineMap(self.K)
                 # 防止错误的顶点误导
                 Kx.vertices = np.array([np.max(Kx.vertices), -np.max(Kx.vertices)]).reshape(-1, 1)
                 self.constr_u.append(self.U.minkowskiDiff(Kx))
@@ -91,7 +93,7 @@ class FTOCP(object):
             # self.len_conu += self.constr_u[i].A.shape[0]
 
         a = 1
-    def solve(self, x0, verbose=False, SS=None, Qfun=None, CVX=None):
+    def solve(self, x0, time=0, verbose=False, SS=None, Qfun=None, CVX=None):
         """This method solves an FTOCP given:
 			- x0: initial condition
 			- SS: (optional) contains a set of state and the terminal constraint is ConvHull(SS)
@@ -103,20 +105,21 @@ class FTOCP(object):
         self.len_conu = 0
 
         for i in range(self.N+1):
-            self.len_conx += self.constr_x[i].A.shape[0]
+            self.len_conx += self.constr_x[time+i].A.shape[0]
 
         for i in range(self.N):
-            self.len_conu += self.constr_u[i].A.shape[0]
+            self.len_conu += self.constr_u[time+i].A.shape[0]
+
         x = MX.sym('x', self.n*(self.N+1))
         u = MX.sym('u', self.d*self.N)
         # State Constraints
         constraints = []
         for i in range(self.N+1):
             constraints = vertcat(constraints,
-                                  mtimes(self.constr_x[i].A, x[self.n * i:self.n * (i + 1)])-self.constr_x[i].b)
+                                  mtimes(self.constr_x[time+i].A, x[self.n * i:self.n * (i + 1)])-self.constr_x[time+i].b)
         for i in range(self.N):
-            constraints = vertcat(constraints, mtimes(self.constr_u[i].A,
-                                                      u[self.d * i:self.d * (i + 1)])-self.constr_u[i].b)
+            constraints = vertcat(constraints, mtimes(self.constr_u[time+i].A,
+                                                      u[self.d * i:self.d * (i + 1)])-self.constr_u[time+i].b)
         # constraints = vertcat(constraints, x[:self.n]-np.array(x0))
         cost = 0
         for i in range(self.N):

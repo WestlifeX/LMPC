@@ -116,7 +116,7 @@ class LMPC(object):
         # Finally flip the cost to have correct order
         return np.flip(cost).tolist()
 
-    def solve(self, xt, verbose=False, SS=None, Qfun=None):
+    def solve(self, xt, time=0, verbose=False, SS=None, Qfun=None):
         if SS is None:
             SS = self.SS
         if Qfun is None:
@@ -133,7 +133,7 @@ class LMPC(object):
 
         # Solve the FTOCP.
         # try:
-        res = self.ftocp.solve(xt, verbose, SS_vector, Qfun_vector, self.CVX)
+        res = self.ftocp.solve(xt, time, verbose, SS_vector, Qfun_vector, self.CVX)
         # except cvxpy.error.SolverError:
         #     print('solver error')
         if res == 0:

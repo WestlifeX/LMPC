@@ -32,7 +32,8 @@ Fs_polyhedron_list: list of polyhedron objects [F_0, ....,F_s-1}
 """
 
 
-def compute_mRPI(epsilon, W, A, B, K):
+def compute_mRPI(epsilon, W, A, B, K, N):
+    # N : number of AkW wanted to be computed
     # initialization
     alpha = 0.0  # ideally start with 0
     logicalVar = 1.0
@@ -75,7 +76,8 @@ def compute_mRPI(epsilon, W, A, B, K):
     print('alpha = ', alpha, end=' ')
     print('s = ', s)
     Fs = polyhedron([], [], [], [], array([[0.0] * s_dim]))
-    for i in range(s):
+    # 原来是s，现在改成N
+    for i in range(N):
         Fs_curr = W.affineMap(matrix_power(A_K, i))
         Fs = polyhedron.minkowskiSum(Fs, Fs_curr)
         if i > 0:  # convex hull can not be constructed with less than 3 points

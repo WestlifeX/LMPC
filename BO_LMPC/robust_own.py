@@ -102,7 +102,13 @@ def main():
     for it in range(0, totalIterations):
         start = ti.time()
         vertices = []
-        iters_once(x0, lmpc, Ts, params, K=K)
+        if it == totalIterations - 1:
+            iters_once(x0, lmpc, Ts, params, K=K)
+
+        else:
+            _, _, _, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
+            np.save('own_xcl_true.npy', xcl_true)
+            np.save('own_ucl_true.npy', ucl_true)
         # if not bayes:
 
         end = ti.time()
@@ -177,7 +183,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
         lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
-    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0]
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

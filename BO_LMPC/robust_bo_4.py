@@ -15,21 +15,16 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta
-from botorch.optim import optimize_acqf
-from botorch.acquisition import UpperConfidenceBound
-from gpytorch.means import ConstantMean
-from gpytorch.kernels import MaternKernel
-import gaussian_process as gp
-import kernel as kn
+from args import Q, R, R_delta, compute_uncertainty
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
-
+import arguments
 
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(2)
+    args = arguments.get_args()
+    np.random.seed(4)
     Ts = 0.1
     params = get_params()
     Ad = np.array([[1.2, 1.5], [0, 1.3]])
@@ -43,6 +38,8 @@ def main():
     # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
+    # K = np.array([1.7, 3.3]).reshape(1, -1)
+    # K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
     # Initial Condition
@@ -52,7 +49,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.1 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.15 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -68,7 +65,7 @@ def main():
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
 
-        ftocp_for_mpc.solve(st, verbose=False)  # Solve FTOCP
+        ftocp_for_mpc.solve(st, time=time, verbose=False)  # Solve FTOCP
 
         vt = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(vt)
@@ -78,14 +75,12 @@ def main():
         # xcl_feasible.append(z[1])
         xcl_feasible.append(ftocp_for_mpc.model(st, vt))
         xcl_feasible_true.append(ftocp_for_mpc.model(xt, ut))
-        uncertainty = [np.exp(xt[0]**2/200)-1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-                       #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
+        if time >= 50:
+            break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -99,8 +94,8 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 5
-    theta_bounds = np.array([[1., 10.]] * (n_params-1) + [[3., 10.]] * 1)
+    n_params = 4
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -110,16 +105,12 @@ def main():
     n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
-    last_params = np.array([1] * (n_params - 1) + [3]).reshape(1, -1)
+    last_params = np.array([1] * (n_params)).reshape(1, -1)
     times = []
 
     for it in range(0, totalIterations):
         start = tim.time()
-
         # bayes opt
-        # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
-        # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
-        # theta_bounds = np.clip(theta_bounds, 0, 100)
         xcls = []
         ucls = []
         xcls_true = []
@@ -133,6 +124,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             train_obj, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             train_y.append(train_obj)
@@ -142,17 +134,17 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.Matern(nu=2.5), normalize_y=False)
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
-                   2 * n_params * np.log(
-                (idx + 1) ** 2 * n_params * 1e-4 * 1000 * np.sqrt(np.log(4 * n_params * 1 / 0.01)))
-            beta = np.sqrt(beta)
-            # beta = 5
+            # beta = 2 * np.log((idx + 1) ** 2 * 2 * np.pi ** 2 / (3 * 0.01)) + \
+            #            2 * n_params * np.log(
+            #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
+            # beta = np.sqrt(beta)
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -161,6 +153,7 @@ def main():
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
+            lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
                 iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)
@@ -183,9 +176,6 @@ def main():
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
-
-            # mean_module = model.mean_module
-            # covar_module = model.covar_module
         end = tim.time()
         print('consumed time: ', end - start)
         times.append(end-start)
@@ -197,8 +187,8 @@ def main():
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    K, _, _ = dlqr(Ad, Bd, Q, R)
-    K = -K
+    # K, _, _ = dlqr(Ad, Bd, Q, R)
+    # K = -K
     ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
@@ -235,9 +225,9 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Solve FTOCP
 
         if SS is not None and Qfun is not None:
-            lmpc.solve(st, verbose=False, SS=SS, Qfun=Qfun)
+            lmpc.solve(st, time=time, verbose=False, SS=SS, Qfun=Qfun)
         else:
-            lmpc.solve(st, verbose=False)
+            lmpc.solve(st, time=time, verbose=False)
         # Read optimal input
         # Read optimal input
         try:
@@ -247,7 +237,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-
+        if abs(ut) > 1:
+            a = 1
         # Apply optimal input to the system
         ucl_true.append(ut)
         # z = odeint(inv_pendulum, xt, [Ts * time, Ts * (time + 1)], args=(ut, params))  # 用非线性连续方程求下一步
@@ -256,17 +247,12 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # xcl.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
 
         xcl.append(np.array(lmpc.ftocp.model(st, vt)))
-        # uncertainty = xcl[-1] ** 2 * 1e-3
-        # uncertainty = np.clip(np.random.randn(4, 1) * 1e-3, -0.1, 0.1)
         xcl_true.append(np.array(lmpc.ftocp.model(xt, ut)))
-        uncertainty = [np.exp(xt[0]**2/200)-1,
-                       -np.exp(xt[1] ** 2 / 200) + 1]
-                       # np.sign(xt[1]) * (0.01 + (0.08 - 0.01) * np.exp(abs(xt[1] / 10) ** 2)) + 0.1 * xt[
-                       #     1]]
-        uncertainty = np.clip(uncertainty, -0.2, 0.2)
+        uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-
+        if time >= 50:
+            break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
