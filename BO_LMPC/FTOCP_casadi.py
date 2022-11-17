@@ -55,6 +55,7 @@ class FTOCP(object):
         self.mrpi, self.F_list = compute_mRPI(1e-10, self.W, self.A, self.B, self.K, 60)
         self.constr_x = []
         self.constr_u = []
+        self.Kxs = []
         self.s = len(self.F_list)
         # 之所以s+1是要把最后一个留给mrpi
         for i in range(self.s+1):
@@ -88,6 +89,8 @@ class FTOCP(object):
 
             self.constr_u[i].vertices = np.round(self.constr_u[i].vertices, 3)
             self.constr_u[i].compute_Hrep()
+
+            self.Kxs.append(Kx)
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
 
             # self.len_conu += self.constr_u[i].A.shape[0]

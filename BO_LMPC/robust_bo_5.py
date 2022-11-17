@@ -91,7 +91,7 @@ def main():
     N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params) # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 4
@@ -171,8 +171,8 @@ def main():
         # iters_once(x0, lmpc, Ts, params)
         lmpc.addTrajectory(xcls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
                            ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                           xcls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                           ucls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
+                           xcls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
@@ -237,7 +237,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         ucl.append(vt)
 
         ut = bias + vt
-        if abs(ut) > 1:
+        if abs(ut) > 1 or abs(xt[0]) > 10 or abs(xt[1]) > 10:
             a = 1
         # Apply optimal input to the system
         ucl_true.append(ut)

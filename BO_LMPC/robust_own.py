@@ -66,7 +66,7 @@ def main():
         xt = xcl_feasible_true[time]  # Read measurements
         bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
 
-        ftocp_for_mpc.solve(st, verbose=False)  # Solve FTOCP
+        ftocp_for_mpc.solve(st, time=time, verbose=False)  # Solve FTOCP
 
         vt = ftocp_for_mpc.uPred[:, 0][0]
         ucl_feasible.append(vt)
@@ -79,6 +79,8 @@ def main():
         uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]
         time += 1
+        if time >= 50:
+            break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -89,7 +91,7 @@ def main():
     N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, Q, R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = False
     totalIterations = 50  # Number of iterations to perform
     n_params = 3
@@ -102,13 +104,16 @@ def main():
     for it in range(0, totalIterations):
         start = ti.time()
         vertices = []
-        if it == totalIterations - 1:
+        Kx = []
+        if it < totalIterations - 1:
             iters_once(x0, lmpc, Ts, params, K=K)
 
         else:
-            _, _, _, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
+            res, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
             np.save('own_xcl_true.npy', xcl_true)
             np.save('own_ucl_true.npy', ucl_true)
+            np.save('own_xcl.npy', xcl)
+            np.save('own_ucl.npy', ucl)
         # if not bayes:
 
         end = ti.time()
@@ -118,7 +123,9 @@ def main():
         # 存一下每次迭代最好的那个点的tube，画个图
         for i in range(len(lmpc.ftocp.F_list)):
             vertices.append(lmpc.ftocp.F_list[i].vertices)
+            Kx.append(lmpc.ftocp.Kxs[i].vertices)
         np.save('./vertices/own/vertices_{}.npy'.format(it), vertices)
+        np.save('./vertices/own/Kxs_{}.npy'.format(it), Kx)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
@@ -161,7 +168,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         xt = xcl_true[time]
         bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
         # Solve FTOCP
-        lmpc.solve(st, verbose=False)
+        lmpc.solve(st, time=time, verbose=False)
         # Read optimal input
         vt = lmpc.uPred[:, 0][0]
         ucl.append(vt)
@@ -177,11 +184,12 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-
+        if time >= 50:
+            break
     # Add trajectory to update the safe set and value function
     if not res:
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
-        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
+        lmpc.addTrajectory(xcl, ucl, xcl, ucl)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 

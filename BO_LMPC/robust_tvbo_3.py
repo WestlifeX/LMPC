@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from args import Q, R, R_delta, compute_uncertainty
 from FTOCP_casadi import FTOCP
+# from FTOCP_robust import FTOCP
 from LMPC import LMPC
 import pdb
 import matplotlib
@@ -89,7 +90,7 @@ def main():
     N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 4
@@ -116,6 +117,7 @@ def main():
     for it in range(0, totalIterations):
         start = tim.time()
         vertices = []
+        Kx = []
         # bayes opt
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
@@ -234,7 +236,7 @@ def main():
         lmpc.ftocp.compute_mrpi()
         res, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, params, K=K)
-        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
+        lmpc.addTrajectory(xcl, ucl, xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
 
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
@@ -251,7 +253,9 @@ def main():
         # 存一下每次迭代最好的那个点的tube，画个图
         for i in range(len(lmpc.ftocp.F_list)):
             vertices.append(lmpc.ftocp.F_list[i].vertices)
+            Kx.append(lmpc.ftocp.Kxs[i].vertices)
         np.save('./vertices/tvbo_3/vertices_{}.npy'.format(it), vertices)
+        np.save('./vertices/tvbo_3/Kxs_{}.npy'.format(it), Kx)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
@@ -259,8 +263,10 @@ def main():
     print(np.argmin(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
-    np.save('tvbo_3_xcl_true.npy', xcls_true[np.argmin(returns[:], axis=0)[0]])
-    np.save('tvbo_3_ucl_true.npy', ucls_true[np.argmin(returns[:], axis=0)[0]])
+    np.save('tvbo_3_xcl_true.npy', xcls_true[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_ucl_true.npy', ucls_true[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_xcl.npy', xcls[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_ucl.npy', ucls[np.argmin(returns[:], axis=0)])
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
     # K, _, _ = dlqr(Ad, Bd, Q, R)
     # K = -K

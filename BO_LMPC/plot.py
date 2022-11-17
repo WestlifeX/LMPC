@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 file_names = os.listdir('./new_results/')
+# file_names = os.listdir('./new_result_2/')
 # bo: 基础的做bo，上一次数据不会用到下次，上次先验也不用到下次
 # linearize: 模型有线性化误差
 # nonlinear: Ts=0.05, x0=[0.1, 0, 0.25, -0.01]，正确的非线性模型
@@ -17,14 +18,14 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-N = 5
+N = 6
 N_alg = 4
 all = np.zeros((N_alg, 51))
 all_best = np.zeros((N_alg, 51))
 bo_data = np.zeros((N, 51))
 tlbo_data = np.zeros((N, 51))
 tlbo_all_data = np.zeros((N, 51))
-for i in range(0, N):
+for i in range(6):
     data = []
     for name in file_names:
         if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1) or name == 'robust_own.md'\
