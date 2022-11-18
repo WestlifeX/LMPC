@@ -91,7 +91,7 @@ def main():
     N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, Q, R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
     totalIterations = 50  # Number of iterations to perform
     n_params = 3
@@ -189,7 +189,7 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
     # Add trajectory to update the safe set and value function
     if not res:
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
-        lmpc.addTrajectory(xcl, ucl, xcl, ucl)
+        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
     return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 

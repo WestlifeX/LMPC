@@ -90,7 +90,7 @@ def main():
     N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
     n_params = 4
@@ -236,7 +236,7 @@ def main():
         lmpc.ftocp.compute_mrpi()
         res, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, params, K=K)
-        lmpc.addTrajectory(xcl, ucl, xcl, ucl)
+        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
         # train_y[np.argmin(train_y[:], axis=0)] = res
 
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],

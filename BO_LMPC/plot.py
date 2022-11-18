@@ -18,14 +18,14 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-N = 6
+N = 3
 N_alg = 4
 all = np.zeros((N_alg, 51))
 all_best = np.zeros((N_alg, 51))
 bo_data = np.zeros((N, 51))
 tlbo_data = np.zeros((N, 51))
 tlbo_all_data = np.zeros((N, 51))
-for i in range(6):
+for i in range(N):
     data = []
     for name in file_names:
         if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1) or name == 'robust_own.md'\
@@ -71,10 +71,10 @@ plt.plot(all[0])
 plt.plot(all[1])
 plt.plot(all[2])
 plt.show()
-plt.plot(all_best[0], label='bo')
+plt.plot(all_best[0], label='generic bo')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[0], bo_std, capsize=3)
 plt.fill_between(range(all_best.shape[1]), all_best[0]-bo_std, all_best[0]+bo_std, alpha=0.3)
-plt.plot(all_best[1], label='tvbo')
+plt.plot(all_best[1], label='transfer learning bo')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
 plt.fill_between(range(all_best.shape[1]), all_best[1]-tlbo_std, all_best[1]+tlbo_std, alpha=0.3)
 plt.plot(all_best[2], label='lmpc')
@@ -85,5 +85,6 @@ plt.plot(all_best[2], label='lmpc')
 
 plt.xlabel('Iterations')
 plt.ylabel('Cost')
+plt.legend()
 plt.savefig('./figs/cost.png', dpi=600)
 plt.show()
