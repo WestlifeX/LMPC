@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta, compute_uncertainty, A, B
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd
 from FTOCP_casadi import FTOCP
 # from FTOCP_robust import FTOCP
 from LMPC import LMPC

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta, compute_uncertainty
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd
 from FTOCP_casadi import FTOCP
 # from FTOCP_robust import FTOCP
 from LMPC import LMPC
@@ -16,7 +16,6 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R
 import arguments
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
@@ -28,16 +27,7 @@ def main():
     np.random.seed(6)
     Ts = 0.1
     params = get_params()
-    Ad = np.array([[1.2, 1.5], [0, 1.3]])
-    Bd = np.array([[0.], [1.]])
-    # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
-    # Bd = np.array([[0.048], [0.95]])
-    # A = np.array([[1, 1], [0, 1]])
-    # B = np.array([[0], [1]])
-    # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
-    # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
-    A = np.vstack((np.hstack(Ad, Bd), np.hstack(np.zeros((Bd.shape[0], Ad.shape[1])), np.eye(Bd.shape[1]))))
-    B = np.vstack((Bd, np.eye(Bd.shape[1])))
+
     K, _, _ = dlqr(A, B, block_diag(Q, R), R_delta)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
