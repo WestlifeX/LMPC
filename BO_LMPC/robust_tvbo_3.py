@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta, compute_uncertainty
+from args import Q, R, R_delta, compute_uncertainty, A, B
 from FTOCP_casadi import FTOCP
 # from FTOCP_robust import FTOCP
 from LMPC import LMPC
@@ -16,27 +16,19 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta
 import arguments
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
-
+from scipy.linalg import block_diag
 
 def main():
     # args = arguments.get_args()
     np.random.seed(3)
     Ts = 0.1
     params = get_params()
-    Ad = np.array([[1.2, 1.5], [0, 1.3]])
-    Bd = np.array([[0.], [1.]])
-    # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
-    # Bd = np.array([[0.048], [0.95]])
-    # A = np.array([[1, 1], [0, 1]])
-    # B = np.array([[0], [1]])
-    # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
-    # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
-    K, _, _ = dlqr(Ad, Bd, Q, R)
+
+    K, _, _ = dlqr(A, B, block_diag(Q, R), R_delta)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
     # K = -K
@@ -48,7 +40,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.15 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.05 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -133,7 +125,7 @@ def main():
 
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i].tolist())
-                K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+                K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
                 K = -K
                 lmpc.ftocp.K = K
                 lmpc.ftocp.compute_mrpi()
@@ -197,7 +189,7 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+            K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
@@ -230,7 +222,7 @@ def main():
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
         # theta = train_x[:][np.argmin(train_y[:], axis=0)[0]]
         lmpc.theta_update(theta.tolist())
-        K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
+        K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
         K = -K
         lmpc.ftocp.K = K
         lmpc.ftocp.compute_mrpi()
