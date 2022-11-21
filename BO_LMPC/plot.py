@@ -25,7 +25,7 @@ all_best = np.zeros((N_alg, 51))
 bo_data = np.zeros((N, 51))
 tlbo_data = np.zeros((N, 51))
 tlbo_all_data = np.zeros((N, 51))
-for i in range(N):
+for i in range(3, N+3):
     data = []
     for name in file_names:
         if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1) or name == 'robust_own.md'\

@@ -27,7 +27,7 @@ def main():
     np.random.seed(1)
     Ts = 0.1
     params = get_params()
-    K, _, _ = dlqr(A, B, block_diag(Q, R), R_delta)
+    K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
     # K = -K
@@ -79,7 +79,7 @@ def main():
     # Initialize LMPC object
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
-    N_LMPC = 3  # horizon length
+    N_LMPC = 10  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params) # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
@@ -92,8 +92,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 5
-    n_iters = 5
+    n_inital_points = 10
+    n_iters = 10
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
@@ -112,7 +112,7 @@ def main():
         train_y = []
         for i in tqdm(range(n_inital_points)):
             lmpc.theta_update(train_x[i].tolist())
-            K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
@@ -141,7 +141,7 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()

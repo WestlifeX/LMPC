@@ -28,7 +28,7 @@ def main():
     Ts = 0.1
     params = get_params()
 
-    K, _, _ = dlqr(A, B, block_diag(Q, R), R_delta)
+    K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
     # K = -K
@@ -85,7 +85,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 4
+    n_params = 3
     theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
@@ -125,7 +125,7 @@ def main():
 
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i].tolist())
-                K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+                K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
                 lmpc.ftocp.compute_mrpi()
@@ -189,7 +189,7 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
@@ -222,7 +222,7 @@ def main():
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
         # theta = train_x[:][np.argmin(train_y[:], axis=0)[0]]
         lmpc.theta_update(theta.tolist())
-        K, _, _ = K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+        K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
         lmpc.ftocp.K = K
         lmpc.ftocp.compute_mrpi()

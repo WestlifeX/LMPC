@@ -30,7 +30,7 @@ class FTOCP(object):
         # Cost (h(x,u) = x^TQx +u^TRu)
         self.Q = Q
         self.R = R
-        self.R_delta = R_delta
+        # self.R_delta = R_delta
         self.K = K
         # Initialize Predicted Trajectory
         self.xPred = []
@@ -133,13 +133,13 @@ class FTOCP(object):
             cost = cost + mtimes(mtimes(x[self.n * i:self.n * (i + 1)].T, self.Q),
                                  x[self.n * i:self.n * (i + 1)]) + \
                     mtimes(mtimes(u[self.d * i:self.d * (i + 1)].T, self.R), u[self.d * i:self.d * (i + 1)])
-            if i == 0:
-                cost = cost + mtimes(mtimes(u[self.d * i:self.d * (i + 1)].T, self.R_delta),
-                                     u[self.d * i:self.d * (i + 1)])
-            else:
-                cost = cost + mtimes(mtimes((u[self.d * i:self.d * (i + 1)] - u[self.d * (i-1):self.d * i]).T,
-                                            self.R_delta),
-                                     (u[self.d * i:self.d * (i + 1)] - u[self.d * (i-1):self.d * i]))
+            # if i == 0:
+            #     cost = cost + mtimes(mtimes(u[self.d * i:self.d * (i + 1)].T, self.R_delta),
+            #                          u[self.d * i:self.d * (i + 1)])
+            # else:
+            #     cost = cost + mtimes(mtimes((u[self.d * i:self.d * (i + 1)] - u[self.d * (i-1):self.d * i]).T,
+            #                                 self.R_delta),
+            #                          (u[self.d * i:self.d * (i + 1)] - u[self.d * (i-1):self.d * i]))
 
         # SS的shape应该是 n × SS中点的个数
         # 如果SS是None，末项就是简单的二次型，否则是SS中各个点value的加权和

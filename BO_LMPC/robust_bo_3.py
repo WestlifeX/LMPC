@@ -27,7 +27,7 @@ def main():
     np.random.seed(3)
     Ts = 0.1
     params = get_params()
-    K, _, _ = dlqr(A, B, block_diag(Q, R), R_delta)
+    K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
     # K = -K
@@ -112,7 +112,7 @@ def main():
         train_y = []
         for i in tqdm(range(n_inital_points)):
             lmpc.theta_update(train_x[i].tolist())
-            K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
@@ -141,7 +141,7 @@ def main():
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
-            K, _, _ = dlqr(A, B, block_diag(lmpc.Q, lmpc.R), lmpc.R_delta)
+            K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()

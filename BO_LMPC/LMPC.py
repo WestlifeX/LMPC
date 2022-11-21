@@ -23,12 +23,12 @@ class LMPC(object):
         self.Qfun = []
         self.Q = ftocp.Q
         self.R = ftocp.R
-        self.R_delta = ftocp.R_delta
+        # self.R_delta = ftocp.R_delta
         self.it = 0
         self.CVX = CVX
         self.Q_true = np.diag([1., 1.])
         self.R_true = np.eye(1) * 1
-        self.R_delta_true = np.eye(1) * 1
+        # self.R_delta_true = np.eye(1) * 1
         self.Qfun_true = []
 
         self.last_SS = []
@@ -42,8 +42,8 @@ class LMPC(object):
         self.Q = self.Q_true * np.diag(theta[:2])
         self.ftocp.R = self.R_true * theta[2]
         self.R = self.R_true * theta[2]
-        self.ftocp.R_delta = self.R_delta_true * theta[3]
-        self.R_delta = self.R_delta_true * theta[3]
+        # self.ftocp.R_delta = self.R_delta_true * theta[3]
+        # self.R_delta = self.R_delta_true * theta[3]
         # self.ftocp.N = int(round(theta[4]))
         # self.Q[0, 1] = theta[3]
         # self.Q[1, 0] = theta[3]
@@ -74,10 +74,10 @@ class LMPC(object):
         self.Qfun.append(cost)
 
         if x_true is not None and u_true is not None:
-            cost_true = self.computeCost(x_true, u_true, self.Q_true, self.R_true, self.R_delta_true)
+            cost_true = self.computeCost(x_true, u_true, self.Q_true, self.R_true)
             self.Qfun_true.append(cost_true)
         else:
-            cost_true = self.computeCost(x, u, self.Q_true, self.R_true, self.R_delta_true)
+            cost_true = self.computeCost(x, u, self.Q_true, self.R_true)
             self.Qfun_true.append(cost_true)
 
         # Initialize zVector
@@ -95,7 +95,7 @@ class LMPC(object):
         if Q is None and R is None:
             Q = self.Q
             R = self.R
-            R_delta = self.R_delta
+            # R_delta = self.R_delta
         cost = []
         for i in range(0, len(x)):
             idx = len(x) - 1 - i
@@ -105,12 +105,12 @@ class LMPC(object):
                 if i == len(x) - 1:
                     cost.append(np.dot(np.dot(x[idx], Q), x[idx]) +
                                 np.dot(np.dot(u[idx], R), u[idx])[0][0] +
-                                np.dot(np.dot(u[idx], R_delta), u[idx])[0][0] +
+                                # np.dot(np.dot(u[idx], R_delta), u[idx])[0][0] +
                                 cost[-1])
                 else:
                     cost.append(np.dot(np.dot(x[idx], Q), x[idx]) +
                                 np.dot(np.dot(u[idx], R), u[idx])[0][0] +
-                                np.dot(np.dot(u[idx] - u[idx - 1], R_delta), u[idx] - u[idx - 1])[0][0] +
+                                # np.dot(np.dot(u[idx] - u[idx - 1], R_delta), u[idx] - u[idx - 1])[0][0] +
                                 cost[-1])
 
         # Finally flip the cost to have correct order
