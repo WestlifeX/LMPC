@@ -40,7 +40,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.05 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.04 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -91,15 +91,9 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-    n_inital_points = 5
-    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
-    mu_init = 1
-    tau_init = 1e10-1
-    tau_s = [tau_init]
-    mu_s = [mu_init]
     times = []
     xcls = []
     ucls = []

@@ -40,7 +40,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.05 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.04 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -79,21 +79,21 @@ def main():
     # Initialize LMPC object
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
-    N_LMPC = 10  # horizon length
+    N_LMPC = 3  # horizon length
     ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params) # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     totalIterations = 50  # Number of iterations to perform
-    n_params = 4
+    n_params = 3
     theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 10
-    n_iters = 10
+    n_inital_points = 5
+    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)

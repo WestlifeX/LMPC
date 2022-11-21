@@ -40,7 +40,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.05 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.04 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================

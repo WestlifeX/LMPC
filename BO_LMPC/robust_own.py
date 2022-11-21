@@ -24,8 +24,8 @@ from control import dlqr
 import arguments
 def main():
     args = arguments.get_args()
-    np.random.seed(args.seed)
-    np.random.seed(5)
+    # np.random.seed(args.seed)
+    # np.random.seed(5)
     Ts = 0.1
     params = get_params()
     # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
@@ -50,7 +50,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.05 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.04 * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================

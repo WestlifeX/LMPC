@@ -18,18 +18,22 @@ file_names = os.listdir('./new_results/')
 # xxx_4: [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 200) - 1), -0.2, 0.2),
 #     np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 200) + 1), -0.2, 0.2)]
 # 如上所示的uncertainty，太大的就直接饱和了
-N = 3
+N = 6
 N_alg = 4
-all = np.zeros((N_alg, 51))
-all_best = np.zeros((N_alg, 51))
-bo_data = np.zeros((N, 51))
-tlbo_data = np.zeros((N, 51))
-tlbo_all_data = np.zeros((N, 51))
-for i in range(3, N+3):
+end = 30
+all = np.zeros((N_alg, end))
+all_best = np.zeros((N_alg, end))
+bo_data = np.zeros((N, end))
+tlbo_data = np.zeros((N, end))
+tlbo_all_data = np.zeros((N, end))
+idxs = [1, 2, 3, 4, 5, 6]
+
+for i in range(N):
+    idx = idxs[i]
     data = []
     for name in file_names:
-        if name == 'robust_bo_{}.md'.format(i+1) or name == 'robust_tvbo_{}.md'.format(i+1) or name == 'robust_own.md'\
-                or name == 'robust_tvbo_all_{}.md'.format(i+1):
+        if name == 'robust_bo_{}.md'.format(idx) or name == 'robust_tvbo_{}.md'.format(idx) or name == 'robust_own.md'\
+                or name == 'robust_tvbo_all_{}.md'.format(idx):
             with open('./new_results/' + name) as f:
                 lines = f.readlines()
                 lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
@@ -44,21 +48,21 @@ for i in range(3, N+3):
                         current_best[j] = vmin
                 y = np.min(lines)
 
-                if name == 'robust_bo_{}.md'.format(i + 1):
-                    all[0, :] += lines / N
-                    all_best[0, :] += current_best / N
-                    bo_data[i - 1, :] = current_best
-                elif name == 'robust_tvbo_{}.md'.format(i+1):
-                    all[1, :] += lines / N
-                    all_best[1, :] += current_best / N
-                    tlbo_data[i - 1, :] = current_best
-                elif name == 'robust_tvbo_all_{}.md'.format(i+1):
-                    all[3, :] += lines / N
-                    all_best[3, :] += current_best / N
-                    tlbo_all_data[i - 1, :] = current_best
+                if name == 'robust_bo_{}.md'.format(idx):
+                    all[0, :end] += lines[:end] / N
+                    all_best[0, :end] += current_best[:end] / N
+                    bo_data[i - 1, :end] = current_best[:end]
+                elif name == 'robust_tvbo_{}.md'.format(idx):
+                    all[1, :] += lines[:end] / N
+                    all_best[1, :] += current_best[:end] / N
+                    tlbo_data[i - 1, :] = current_best[:end]
+                elif name == 'robust_tvbo_all_{}.md'.format(idx):
+                    all[3, :] += lines[:end] / N
+                    all_best[3, :] += current_best[:end] / N
+                    tlbo_all_data[i - 1, :] = current_best[:end]
                 else:
-                    all[2, :] += lines / N
-                    all_best[2, :] += current_best / N
+                    all[2, :] += lines[:end] / N
+                    all_best[2, :] += current_best[:end] / N
 
     #         plt.plot(lines[0:50], label=name.strip('.md'))
     #         plt.plot(np.linspace(1, 50, 50), np.ones(50)*y)
