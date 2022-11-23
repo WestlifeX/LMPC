@@ -110,6 +110,8 @@ def main():
         start = tim.time()
         vertices = []
         Kx = []
+        ys = []
+        thetas = []
         # bayes opt
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
@@ -125,6 +127,7 @@ def main():
 
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i].tolist())
+                thetas.append(train_x[i])
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
@@ -132,6 +135,7 @@ def main():
 
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
+                ys.append(train_obj)
                 objs.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
@@ -185,6 +189,7 @@ def main():
             # beta = np.sqrt(beta)
             beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
+            thetas.append(next_sample)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
@@ -193,11 +198,9 @@ def main():
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
-            try:
-                new_res, xcl, ucl, xcl_true, ucl_true = \
+            new_res, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
-            except AttributeError:
-                a = 1
+            ys.append(new_res)
             objs.append(new_res)
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
@@ -248,6 +251,9 @@ def main():
             Kx.append(lmpc.ftocp.Kxs[i].vertices)
         np.save('./vertices/tvbo_3/vertices_{}.npy'.format(it), vertices)
         np.save('./vertices/tvbo_3/Kxs_{}.npy'.format(it), Kx)
+
+        np.save('./thetas/tvbo/theta_{}.npy'.format(it), thetas)
+        np.save('./ys/tvbo/y_{}.npy'.format(it), ys)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
