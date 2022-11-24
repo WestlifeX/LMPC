@@ -173,9 +173,9 @@ def main():
             # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
             # train_x = np.vstack((train_x, train_x_temp))
             # train_y = np.vstack((train_y, train_y_temp))
-        if train_x.shape[0] > 50:
-            train_x = train_x[-50:, :]
-            train_y = train_y[-50:, :]
+        # if train_x.shape[0] > 50:
+        #     train_x = train_x[-50:, :]
+        #     train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
