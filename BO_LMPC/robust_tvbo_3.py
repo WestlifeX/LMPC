@@ -98,8 +98,6 @@ def main():
     last_params = np.array([1] * (n_params)).reshape(1, -1)
     mu_init = 1
     tau_init = 1e10-1
-    tau_s = [tau_init]
-    mu_s = [mu_init]
     times = []
     xcls = []
     ucls = []
@@ -288,7 +286,6 @@ def main():
 def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     # for it in range(0, totalIterations):
     # Set initial condition at each iteration
-    Ki = np.array([[-0.52746546, -1.82539112]])
     xcl = [x0]
     ucl = []
     xcl_true = [x0]
@@ -301,12 +298,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
-        bias1 = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
-        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0] + 1e3
-        if abs(bias1) < abs(bias2):
-            bias = bias1
-        else:
-            bias = bias2
+        bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
 
         # Solve FTOCP
         if SS is not None and Qfun is not None:
