@@ -83,36 +83,41 @@ tlbo_error = np.vstack((all_best[1]-tlbo_min, tlbo_max-all_best[1]))
 # plt.plot(all[1])
 # plt.plot(all[2])
 # plt.show()
-colors = ['steelblue', 'cornflowerblue', 'green', 'sandybrown']
+colors = ['steelblue', 'purple', 'green', 'sandybrown']
+alpha = 0.1
 x = np.linspace(1, 30, 30)
-# plt.plot(x, all_best[0], label='Generic BO', lw=2, color=colors[0])
+plt.plot(x, all_best[0], label='Generic BO', lw=2, color=colors[0])
 # plt.step(x, all_best[0], label='generic bo', lw=2, color='purple')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[0], bo_std, capsize=3)
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[0]-bo_std, all_best[0]+bo_std, alpha=0.3, color=colors[0])
-plt.plot(x, all_best[1], label='Efficient BO', lw=2, color=colors[0])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[0]-bo_std, all_best[0]+bo_std, alpha=alpha,
+                 facecolor=colors[0], edgecolor='none')
+plt.plot(x, all_best[1], label='Efficient BO', lw=2, color=colors[1])
 # plt.step(x, all_best[1], label='transfer learning bo', lw=2, color='slateblue')
-plt.errorbar(np.arange(1, all_best.shape[1]+1), all_best[1], tlbo_error, fmt='none', elinewidth=1,
-             capsize=3, ecolor=colors[1])
-plt.fill_between(range(1, all_best.shape[1]+1), all_best[1]-tlbo_std, all_best[1]+tlbo_std, alpha=0.5, color=colors[0])
+# plt.errorbar(np.arange(1, all_best.shape[1]+1), all_best[1], tlbo_error, fmt='none', elinewidth=1,
+#              capsize=3, ecolor=colors[1])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[1]-tlbo_std, all_best[1]+tlbo_std, alpha=alpha,
+                 facecolor=colors[1], edgecolor='none')
 # plt.plot(all_best[2], label='lmpc')
 
-# plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=0.3, color=colors[2])
+plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
+                 facecolor=colors[2], edgecolor='none')
 
-# plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=0.3, color=colors[3])
+plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,
+                 facecolor=colors[3], edgecolor='none')
 # plt.plot(all_best[3], label='tvbo all')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
 # plt.fill_between(range(all_best.shape[1]), all_best[3]-tlbo_all_std, all_best[3]+tlbo_all_std, alpha=0.3)
-
-plt.xlabel('Iterations')
-plt.ylabel('Cost')
+font = {'family': 'Times New Roman', 'size': 16}
+plt.xlabel('Iterations', font)
+plt.ylabel('Cost', font)
 
 # 不显示右侧和上面的边框线
 ax = plt.gca()
 ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
-plt.legend()
+plt.legend(prop=font)
 plt.grid()
 plt.savefig('./figs/cost.png', dpi=600)
 plt.show()

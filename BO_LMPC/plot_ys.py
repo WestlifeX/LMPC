@@ -23,9 +23,12 @@ with open('./new_results/robust_tvbo_3.md') as f:
             vmin = lines[j]
         else:
             current_best[j] = vmin
-    plt.plot(np.linspace(1, 30, 30), current_best[:30], color='red', label='current best performance')
-plt.xlabel('Iterations')
+    plt.plot(np.linspace(1, 30, 30), current_best[:30], color='purple', label='current best performance')
+
+font = {'family': 'Times New Roman', 'size': 16}
+plt.xlabel('Iterations', font)
+plt.ylabel('Cost', font)
 plt.grid()
-plt.legend()
+plt.legend(prop=font)
 plt.savefig('./figs/data_points.png', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()
