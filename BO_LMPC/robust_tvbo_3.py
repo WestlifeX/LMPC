@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0
 from FTOCP_casadi import FTOCP
 # from FTOCP_robust import FTOCP
 from LMPC import LMPC
@@ -36,7 +36,7 @@ def main():
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
     # x0 = [-2., 6.]
-    x0 = [4., 1.]
+    # x0 = [4., 1.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -91,13 +91,9 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-    n_inital_points = 5
-    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
-    mu_init = 1
-    tau_init = 1e10-1
     times = []
     xcls = []
     ucls = []
@@ -108,8 +104,6 @@ def main():
         start = tim.time()
         vertices = []
         Kx = []
-        ys = []
-        thetas = []
         # bayes opt
         # theta_bounds[:n_params-1, 0] = last_params[0, :n_params-1] / 3
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
@@ -125,7 +119,6 @@ def main():
 
             for i in tqdm(range(n_inital_points)):
                 lmpc.theta_update(train_x[i].tolist())
-                thetas.append(train_x[i])
                 K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
                 K = -K
                 lmpc.ftocp.K = K
@@ -133,7 +126,6 @@ def main():
 
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
-                ys.append(train_obj)
                 objs.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
@@ -173,9 +165,9 @@ def main():
             # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
             # train_x = np.vstack((train_x, train_x_temp))
             # train_y = np.vstack((train_y, train_y_temp))
-        if train_x.shape[0] > 50:
-            train_x = train_x[-50:, :]
-            train_y = train_y[-50:, :]
+        # if train_x.shape[0] > 50:
+        #     train_x = train_x[-50:, :]
+        #     train_y = train_y[-50:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
@@ -187,7 +179,6 @@ def main():
             # beta = np.sqrt(beta)
             beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
-            thetas.append(next_sample)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
@@ -196,9 +187,11 @@ def main():
             K = -K
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
-            new_res, xcl, ucl, xcl_true, ucl_true = \
+            try:
+                new_res, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, params, K=K)
-            ys.append(new_res)
+            except AttributeError:
+                a = 1
             objs.append(new_res)
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
@@ -249,9 +242,6 @@ def main():
             Kx.append(lmpc.ftocp.Kxs[i].vertices)
         np.save('./vertices/tvbo_3/vertices_{}.npy'.format(it), vertices)
         np.save('./vertices/tvbo_3/Kxs_{}.npy'.format(it), Kx)
-
-        np.save('./thetas/tvbo/theta_{}.npy'.format(it), thetas)
-        np.save('./ys/tvbo/y_{}.npy'.format(it), ys)
         # ====================================================================================
         # Compute optimal solution by solving a FTOCP with long horizon
         # ====================================================================================
@@ -286,6 +276,7 @@ def main():
 def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     # for it in range(0, totalIterations):
     # Set initial condition at each iteration
+    Ki = np.array([[-0.52746546, -1.82539112]])
     xcl = [x0]
     ucl = []
     xcl_true = [x0]
@@ -298,7 +289,12 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
-        bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias1 = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
+        bias2 = np.dot(Ki, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0] + 1e3
+        if abs(bias1) < abs(bias2):
+            bias = bias1
+        else:
+            bias = bias2
 
         # Solve FTOCP
         if SS is not None and Qfun is not None:

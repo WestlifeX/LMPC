@@ -15,7 +15,7 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -36,7 +36,7 @@ def main():
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
     # x0 = [-2., 6.]
-    x0 = [4., 1.]
+    # x0 = [4., 1.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便

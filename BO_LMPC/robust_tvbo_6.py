@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0
 from FTOCP_casadi import FTOCP
 # from FTOCP_robust import FTOCP
 from LMPC import LMPC
@@ -36,7 +36,7 @@ def main():
     # Initial Condition
     # x0 = [1, 0, 0.25, -0.01]
     # x0 = [-2., 6.]
-    x0 = [4., 1.]
+    # x0 = [4., 1.]
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
@@ -91,15 +91,9 @@ def main():
     # run simulation
     print("Starting LMPC")
     returns = []
-    n_inital_points = 5
-    n_iters = 5
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
-    mu_init = 1
-    tau_init = 1e10-1
-    tau_s = [tau_init]
-    mu_s = [mu_init]
     times = []
     xcls = []
     ucls = []
