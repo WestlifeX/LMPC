@@ -83,7 +83,7 @@ tlbo_error = np.vstack((all_best[1]-tlbo_min, tlbo_max-all_best[1]))
 # plt.plot(all[1])
 # plt.plot(all[2])
 # plt.show()
-colors = ['steelblue', 'purple', 'green', 'sandybrown']
+colors = ['sandybrown', 'purple', 'green', 'steelblue']
 alpha = 0.1
 x = np.linspace(1, 30, 30)
 plt.plot(x, all_best[0], label='Generic BO', lw=2, color=colors[0])
@@ -121,3 +121,14 @@ plt.legend(prop=font)
 plt.grid()
 plt.savefig('./figs/cost.png', dpi=600)
 plt.show()
+
+n = 2
+for i in range(30):
+    print(str(i+1) + ' & ' + str(round(all_best[1, i], n)) + '(' + str(round(all_best[1, i]-tlbo_std[i], n))
+          + ', ' + str(round(all_best[1, i]+tlbo_std[i], n)) + ')'
+          + ' & ' + str(round(all_best[0, i], n)) + '(' + str(round(all_best[0, i]-bo_std[i], n))
+          + ', ' + str(round(all_best[0, i]+bo_std[i], n)) + ')' +
+          ' & ' + str(round(all_best[2, i], n)) + '(' + str(round(all_best[2, i]-direct_std[i], n))
+          + ', ' + str(round(all_best[2, i]+direct_std[i], n)) + ')' +
+          ' & ' + str(round(all_best[3, i], n)) + '(' + str(round(all_best[3, i]-unlim_std[i], n))
+          + ', ' + str(round(all_best[3, i]+unlim_std[i], n)) + ')' + ' \\\\')
