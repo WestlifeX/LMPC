@@ -13,8 +13,9 @@ Bd = np.array([[0.], [1.]])
 # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
 A = np.vstack((np.hstack((Ad, Bd)), np.hstack((np.zeros((Bd.shape[1], Ad.shape[1])), np.eye(Bd.shape[1])))))
 B = np.vstack((Bd, np.eye(Bd.shape[1])))
-x0 = [-6.7, 1.4]
-coef = 0.05
+x0 = [-6.7, -0.4]
+coef = 0.04
+totalIterations = 50
 def compute_uncertainty(xt):
     return [np.clip(np.sign(xt[0]) * (np.exp(xt[0] ** 2 / 10) - 1), -0.03, 0.03),
         np.clip(np.sign(xt[1]) * (-np.exp(xt[1] ** 2 / 10) + 1), -0.03, 0.03)]

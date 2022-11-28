@@ -108,7 +108,7 @@ class FTOCP(object):
         self.len_conu = 0
 
         for i in range(self.N+1):
-            self.len_conx += self.constr_x[time+i].A.shape[0]
+             self.len_conx += self.constr_x[time+i].A.shape[0]
 
         for i in range(self.N):
             self.len_conu += self.constr_u[time+i].A.shape[0]

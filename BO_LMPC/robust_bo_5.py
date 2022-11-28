@@ -15,7 +15,7 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef, totalIterations
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -84,7 +84,6 @@ def main():
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
-    totalIterations = 50  # Number of iterations to perform
     n_params = 3
     theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
