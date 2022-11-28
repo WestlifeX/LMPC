@@ -15,7 +15,7 @@ import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from bayes_opt_mine import get_model, step
-from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0
+from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -40,7 +40,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, 0.04 * Q, R, R_delta, K, params)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
