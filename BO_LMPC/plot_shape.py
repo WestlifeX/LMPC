@@ -33,7 +33,7 @@ ax = fig.add_subplot(133, projection='3d')
 ax.plot_surface(xx, yy, all_res[:, :, 2], cmap=plt.get_cmap('rainbow'))
 ax.set_title('Iteration 3', font)
 plt.subplots_adjust(wspace=0.6)
-plt.savefig('./figs/similarity.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/similarity.jpg', dpi=1200, bbox_inches='tight', pad_inches=0)
 plt.show()
 a = 1
 
