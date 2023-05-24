@@ -14,16 +14,13 @@ import matplotlib.pyplot as plt
 import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
-from bayes_opt_mine import get_model, step
 from args import Q, R, R_delta, compute_uncertainty, x0, coef
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
 import time as ti
 from control import dlqr
-import arguments
 def main():
-    args = arguments.get_args()
     # np.random.seed(args.seed)
     # np.random.seed(5)
     Ts = 0.1

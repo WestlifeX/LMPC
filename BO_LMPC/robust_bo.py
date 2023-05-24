@@ -14,16 +14,13 @@ import matplotlib.pyplot as plt
 import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
-from bayes_opt_mine import get_model, step
 from args import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef, totalIterations
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
-import arguments
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    args = arguments.get_args()
     np.random.seed(1)
     Ts = 0.1
     params = get_params()

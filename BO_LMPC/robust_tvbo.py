@@ -11,19 +11,15 @@ from tqdm import tqdm
 from control import dlqr
 import cvxpy
 matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
 import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
-from bayes_opt_mine import get_model, step
-import arguments
 from acq_func import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    # args = arguments.get_args()
     np.random.seed(1)
     Ts = 0.1
     params = get_params()

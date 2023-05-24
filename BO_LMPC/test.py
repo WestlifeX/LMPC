@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import copy
 import pickle
 from objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
-from bayes_opt_mine import get_model, step
 
 from botorch.optim import optimize_acqf
 from botorch.acquisition import UpperConfidenceBound
