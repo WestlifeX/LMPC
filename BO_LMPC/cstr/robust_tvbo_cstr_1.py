@@ -19,7 +19,7 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(5)
+    np.random.seed(1)
     Ts = 0.1
     data_limit = 100
     K, _, _ = dlqr(Ad, Bd, Q, R)
@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[1., 1000.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -169,9 +169,7 @@ def main():
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            # beta = 1
-            # beta = np.sqrt(beta)
-            beta = 1
+            beta = 100
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):

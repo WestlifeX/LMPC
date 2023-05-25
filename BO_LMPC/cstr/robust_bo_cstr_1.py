@@ -20,7 +20,7 @@ import time as tim
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(5)
+    np.random.seed(1)
     Ts = 0.1
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
@@ -80,7 +80,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[1., 1000.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -129,7 +129,7 @@ def main():
             #            2 * n_params * np.log(
             #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
             # beta = np.sqrt(beta)
-            beta = 1
+            beta = 100
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
