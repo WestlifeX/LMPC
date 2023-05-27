@@ -14,7 +14,7 @@ Bd = np.array([[-0.0004], [0.2907]])
 A = np.vstack((np.hstack((Ad, Bd)), np.hstack((np.zeros((Bd.shape[1], Ad.shape[1])), np.eye(Bd.shape[1])))))
 B = np.vstack((Bd, np.eye(Bd.shape[1])))
 x0 = [-0.258, 5.]
-coef = 0.01
+coef = 0.4
 totalIterations = 30
 
 G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])

@@ -19,7 +19,7 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(2)
+    np.random.seed(8)
     Ts = 0.1
     data_limit = 100
     K, _, _ = dlqr(Ad, Bd, Q, R)

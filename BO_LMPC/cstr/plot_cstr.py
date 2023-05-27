@@ -34,7 +34,7 @@ for i in range(N):
     data = []
     for name in file_names:
         if name == 'bo_{}.md'.format(idx) or name == 'tvbo_{}.md'.format(idx) or \
-                name == 'tvbo_direct_{}.md'.format(idx) \
+                name == 'direct_{}.md'.format(idx) \
                 or name == 'tvbo_unlim_{}.md'.format(idx):
             with open('./results/' + name) as f:
                 lines = f.readlines()
@@ -53,19 +53,19 @@ for i in range(N):
                 if name == 'bo_{}.md'.format(idx):
                     all[0, :end] += lines[:end] / N
                     all_best[0, :end] += current_best[:end] / N
-                    bo_data[i - 1, :end] = current_best[:end]
+                    bo_data[i, :end] = current_best[:end]
                 elif name == 'tvbo_{}.md'.format(idx):
                     all[1, :end] += lines[:end] / N
                     all_best[1, :] += current_best[:end] / N
-                    tlbo_data[i - 1, :] = current_best[:end]
-                elif name == 'tvbo_direct_{}.md'.format(idx):
+                    tlbo_data[i, :] = current_best[:end]
+                elif name == 'direct_{}.md'.format(idx):
                     all[2, :end] += lines[:end] / N
                     all_best[2, :] += current_best[:end] / N
-                    direct_data[i - 1, :] = current_best[:end]
+                    direct_data[i, :] = current_best[:end]
                 else:
                     all[3, :end] += lines[:end] / N
                     all_best[3, :] += current_best[:end] / N
-                    unlim_data[i - 1, :] = current_best[:end]
+                    unlim_data[i, :] = current_best[:end]
 
     #         plt.plot(lines[0:50], label=name.strip('.md'))
     #         plt.plot(np.linspace(1, 50, 50), np.ones(50)*y)
@@ -99,9 +99,9 @@ plt.fill_between(range(1, all_best.shape[1]+1), all_best[1]-tlbo_std, all_best[1
                  facecolor=colors[1], edgecolor='none')
 # plt.plot(all_best[2], label='lmpc')
 
-# plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
-#                  facecolor=colors[2], edgecolor='none')
+plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
+                 facecolor=colors[2], edgecolor='none')
 #
 # plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
 # plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,

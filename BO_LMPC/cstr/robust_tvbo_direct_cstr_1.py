@@ -19,7 +19,7 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(25)
+    np.random.seed(78)
     Ts = 0.1
     data_limit = 100
     K, _, _ = dlqr(Ad, Bd, Q, R)
@@ -103,7 +103,6 @@ def main():
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
         # theta_bounds = np.clip(theta_bounds, 0, 100)
         print("Initializing")
-        objs = []
         if it == 0:
             n_inital_points = 10
             n_iters = 0
@@ -120,45 +119,17 @@ def main():
 
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, 0, K=K)
-                objs.append(train_obj)
+                train_y.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
                 xcls_true.append(xcl_true)
                 ucls_true.append(ucl_true)
 
-            mu_d = np.mean(objs)
-            sigma_d = np.sqrt(np.mean((objs-mu_d)**2))
-            for i in range(n_inital_points):
-                train_y.append((np.array(objs[i]) - mu_d) / sigma_d)
-
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
             n_iters = 10
-            # train_x_temp = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-            #                             size=(n_inital_points, theta_bounds.shape[0]))
-            # train_y_temp = []
-            # for i in tqdm(range(n_inital_points)):
-            #     lmpc.theta_update(train_x_temp[i].tolist())
-            #     K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
-            #     K = -K
-            #     lmpc.ftocp.K = K
-            #     train_obj, xcl, ucl, xcl_true, ucl_true = \
-            #         iters_once(x0, lmpc, Ts, params, K=K)
-            #     objs.append(train_obj)
-            #     xcls.append(xcl)
-            #     ucls.append(ucl)
-            #     xcls_true.append(xcl_true)
-            #     ucls_true.append(ucl_true)
-            #
-            # mu_d = np.mean(objs)
-            # sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
-            # for i in range(n_inital_points):
-            #     train_y_temp.append((np.array(objs[i]) - mu_d) / sigma_d)
-            #
-            # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
-            # train_x = np.vstack((train_x, train_x_temp))
-            # train_y = np.vstack((train_y, train_y_temp))
+
         if train_x.shape[0] > data_limit:
             train_x = train_x[-data_limit:, :]
             train_y = train_y[-data_limit:, :]
@@ -184,22 +155,12 @@ def main():
                     iters_once(x0, lmpc, Ts, 0, K=K)
             except AttributeError:
                 a = 1
-            objs.append(new_res)
-            mu_d = np.mean(objs)
-            sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
-
-            # recompute y(1:t-1)
-            for i in range(n_inital_points+idx):
-                train_y[i-n_inital_points-idx] = (objs[i] - mu_d) / sigma_d
             xcls.append(xcl)
             ucls.append(ucl)
             xcls_true.append(xcl_true)
             ucls_true.append(ucl_true)
-            if len(objs) == 1:
-                y = 0
-            else:
-                y = (new_res-mu_d)/sigma_d
-            train_y = np.append(train_y, y).reshape(-1, 1)
+
+            train_y = np.append(train_y, new_res).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
             model = GaussianProcessRegressor(kernel=kernels.RBF())
