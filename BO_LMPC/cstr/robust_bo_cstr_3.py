@@ -20,7 +20,7 @@ import time as tim
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(7)
+    np.random.seed(39)
     Ts = 0.1
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
@@ -65,8 +65,8 @@ def main():
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -80,7 +80,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 1000.]] * (n_params))
+    theta_bounds = np.array([[1., 300.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -119,7 +119,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.RBF())
+        model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -234,8 +234,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true

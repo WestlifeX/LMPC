@@ -83,7 +83,7 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
 
         else:
-            res, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, 0, K=K)
+            _, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, 0, K=K)
             np.save('own_xcl_true.npy', xcl_true)
             np.save('own_ucl_true.npy', ucl_true)
             np.save('own_xcl.npy', xcl)

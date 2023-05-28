@@ -13,7 +13,7 @@ Bd = np.array([[-0.0004], [0.2907]])
 # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
 A = np.vstack((np.hstack((Ad, Bd)), np.hstack((np.zeros((Bd.shape[1], Ad.shape[1])), np.eye(Bd.shape[1])))))
 B = np.vstack((Bd, np.eye(Bd.shape[1])))
-x0 = [-0.258, 5.]
+x0 = [-0.3, 5.]
 coef = 0.4
 totalIterations = 30
 

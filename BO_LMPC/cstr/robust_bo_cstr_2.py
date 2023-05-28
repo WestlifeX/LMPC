@@ -20,7 +20,7 @@ import time as tim
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(8)
+    np.random.seed(3)
     Ts = 0.1
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
@@ -80,7 +80,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 1000.]] * (n_params))
+    theta_bounds = np.array([[1., 200.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -238,7 +238,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
             break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":
