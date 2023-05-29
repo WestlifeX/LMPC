@@ -54,8 +54,8 @@ def main():
         uncertainty = compute_uncertainty(xt)
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -158,8 +158,8 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # Add trajectory to update the safe set and value function
     if not res:
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):

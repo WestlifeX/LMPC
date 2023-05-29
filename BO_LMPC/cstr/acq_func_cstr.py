@@ -28,8 +28,8 @@ def opt_acquision(model, bounds, beta,
         point_list = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, n_theta))
         if prior is not None:
             point_list = np.vstack((point_list, prior))
-        else:
-            point_list = np.vstack((point_list, np.array([1]*n_theta).reshape(1, -1)))
+        # else:
+        #     point_list = np.vstack((point_list, np.array([1]*n_theta).reshape(1, -1)))
         for starting_point in point_list:
 
             res = minimize(ucb,

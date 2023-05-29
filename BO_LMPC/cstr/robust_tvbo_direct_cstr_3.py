@@ -19,9 +19,9 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(39)
+    np.random.seed(3)
     Ts = 0.1
-    data_limit = 100
+    data_limit = 50
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 300.]] * (n_params))
+    theta_bounds = np.array([[1., 10.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -120,21 +120,18 @@ def main():
 
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, 0, K=K)
-                train_y.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
                 xcls_true.append(xcl_true)
                 ucls_true.append(ucl_true)
-
+                train_y.append(train_obj)
 
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
             n_iters = 10
 
-        if train_x.shape[0] > data_limit:
-            train_x = train_x[-data_limit:, :]
-            train_y = train_y[-data_limit:, :]
+
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
@@ -180,7 +177,9 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
-
+        if train_x.shape[0] > data_limit:
+            train_x = train_x[-data_limit:, :]
+            train_y = train_y[-data_limit:, :]
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],
         #                    xcls_true[np.argmin(train_y[:], axis=0)[0]],

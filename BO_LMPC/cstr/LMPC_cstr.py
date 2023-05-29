@@ -68,7 +68,9 @@ class LMPC(object):
         # Add the feasible trajectory x and the associated input sequence u to the safe set
         self.SS.append(copy.copy(x))
         self.uSS.append(copy.copy(u))
-
+        # if len(self.SS) > 10:
+        #     self.SS = [self.SS[0]] + self.SS[-10:]
+        #     self.uSS = [self.uSS[0]] + self.uSS[-10:]
         # Compute and store the cost associated with the feasible trajectory
         cost = self.computeCost(x, u)
         self.Qfun.append(cost)

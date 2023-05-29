@@ -20,7 +20,7 @@ file_names = os.listdir('./results/')
 # 如上所示的uncertainty，太大的就直接饱和了
 N = 6
 N_alg = 4
-end = 30
+end = 20
 all = np.zeros((N_alg, end))
 all_best = np.zeros((N_alg, end))
 bo_data = np.zeros((N, end))
@@ -85,7 +85,7 @@ tlbo_error = np.vstack((all_best[1]-tlbo_min, tlbo_max-all_best[1]))
 # plt.show()
 colors = ['sandybrown', 'purple', 'green', 'steelblue']
 alpha = 0.1
-x = np.linspace(1, 30, 30)
+x = np.linspace(1, 20, 20)
 plt.plot(x, all_best[0], label='Generic BO', lw=2, color=colors[0])
 # plt.step(x, all_best[0], label='generic bo', lw=2, color='purple')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[0], bo_std, capsize=3)
@@ -124,7 +124,7 @@ plt.savefig('./figs/cost.jpg', dpi=1200)
 plt.show()
 
 n = 2
-for i in range(30):
+for i in range(20):
     print(str(i+1) + ' & ' + str(round(all_best[1, i], n)) + '(' + str(round(all_best[1, i]-tlbo_std[i], n))
           + ', ' + str(round(all_best[1, i]+tlbo_std[i], n)) + ')'
           + ' & ' + str(round(all_best[0, i], n)) + '(' + str(round(all_best[0, i]-bo_std[i], n))

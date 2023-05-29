@@ -19,9 +19,9 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(36)
+    np.random.seed(1)
     Ts = 0.1
-    data_limit = 100
+    data_limit = 50
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 300.]] * (n_params))
+    theta_bounds = np.array([[1., 10.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -130,30 +130,7 @@ def main():
         else:
             n_inital_points = 0
             n_iters = 10
-            # train_x_temp = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
-            #                             size=(n_inital_points, theta_bounds.shape[0]))
-            # train_y_temp = []
-            # for i in tqdm(range(n_inital_points)):
-            #     lmpc.theta_update(train_x_temp[i].tolist())
-            #     K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
-            #     K = -K
-            #     lmpc.ftocp.K = K
-            #     train_obj, xcl, ucl, xcl_true, ucl_true = \
-            #         iters_once(x0, lmpc, Ts, params, K=K)
-            #     objs.append(train_obj)
-            #     xcls.append(xcl)
-            #     ucls.append(ucl)
-            #     xcls_true.append(xcl_true)
-            #     ucls_true.append(ucl_true)
-            #
-            # mu_d = np.mean(objs)
-            # sigma_d = np.sqrt(np.mean((objs - mu_d) ** 2))
-            # for i in range(n_inital_points):
-            #     train_y_temp.append((np.array(objs[i]) - mu_d) / sigma_d)
-            #
-            # train_y_temp = np.array(train_y_temp).reshape(-1, 1)
-            # train_x = np.vstack((train_x, train_x_temp))
-            # train_y = np.vstack((train_y, train_y_temp))
+
         if train_x.shape[0] > data_limit:
             train_x = train_x[-data_limit:, :]
             train_y = train_y[-data_limit:, :]

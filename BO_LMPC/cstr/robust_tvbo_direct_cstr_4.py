@@ -10,7 +10,6 @@ from scipy.integrate import odeint
 from tqdm import tqdm
 from control import dlqr
 import cvxpy
-
 matplotlib.use('TkAgg')
 import copy
 import pickle
@@ -19,11 +18,10 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 from scipy.linalg import block_diag
 
-
 def main():
     np.random.seed(4)
     Ts = 0.1
-    data_limit = 100
+    data_limit = 50
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -66,8 +64,8 @@ def main():
         xcl_feasible_true[-1] = [a + b for a, b in zip(xcl_feasible_true[-1], uncertainty)]  # uncertainties
         # xcl_feasible.append([a + b * Ts for a, b in zip(xt, inv_pendulum(xt, 0, ut, params))])
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # ====================================================================================
     # Run LMPC
     # ====================================================================================
@@ -76,14 +74,13 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K,
-                  0)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, 0)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
-    # Number of iterations to perform
+      # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[1., 10.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -106,6 +103,7 @@ def main():
         # theta_bounds[:n_params-1, 1] = last_params[0, :n_params-1] * 3
         # theta_bounds = np.clip(theta_bounds, 0, 100)
         print("Initializing")
+        objs = []
         if it == 0:
             n_inital_points = 10
             n_iters = 0
@@ -122,11 +120,11 @@ def main():
 
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, 0, K=K)
-                train_y.append(train_obj)
                 xcls.append(xcl)
                 ucls.append(ucl)
                 xcls_true.append(xcl_true)
                 ucls_true.append(ucl_true)
+                train_y.append(train_obj)
 
             train_y = np.array(train_y).reshape(-1, 1)
         else:
@@ -137,13 +135,13 @@ def main():
             train_x = train_x[-data_limit:, :]
             train_y = train_y[-data_limit:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.RBF())
+        model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
         print('bayes opt for {} iteration'.format(it + 1))
         for idx in tqdm(range(n_iters)):
-            beta = 1
+            beta = 100
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -158,6 +156,7 @@ def main():
                     iters_once(x0, lmpc, Ts, 0, K=K)
             except AttributeError:
                 a = 1
+
             xcls.append(xcl)
             ucls.append(ucl)
             xcls_true.append(xcl_true)
@@ -166,17 +165,17 @@ def main():
             train_y = np.append(train_y, new_res).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.RBF())
+            model = GaussianProcessRegressor(kernel=kernels.Matern())
             model.fit(train_x, train_y)
 
-        theta = train_x[-(n_inital_points + n_iters):][np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]]
+        theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
         # theta = train_x[:][np.argmin(train_y[:], axis=0)[0]]
         lmpc.theta_update(theta.tolist())
         K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
         K = -K
         lmpc.ftocp.K = K
         lmpc.ftocp.compute_mrpi()
-        res, xcl, ucl, xcl_true, ucl_true = \
+        _, xcl, ucl, xcl_true, ucl_true = \
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
@@ -190,7 +189,7 @@ def main():
 
         end = tim.time()
         print('consumed time: ', end - start)
-        times.append(end - start)
+        times.append(end-start)
         returns.append(lmpc.Qfun_true[it][0])
         # 存一下每次迭代最好的那个点的tube，画个图
         for i in range(len(lmpc.ftocp.F_list)):
@@ -240,11 +239,11 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
     st = x0
     # time Loop (Perform the task until close to the origin)
     while np.dot(st, st) > 10 ** (-6):
-        # for time in range(20):
+    # for time in range(20):
         # Read measurement
         st = xcl[time]
         xt = xcl_true[time]
-        bias = np.dot(K, (np.array(xt) - np.array(st)).reshape(-1, 1))[0][0]
+        bias = np.dot(K, (np.array(xt)-np.array(st)).reshape(-1, 1))[0][0]
 
         # Solve FTOCP
         if SS is not None and Qfun is not None:
@@ -279,8 +278,8 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         uncertainty = compute_uncertainty(xt)
         xcl_true[-1] = [a + b for a, b in zip(xcl_true[-1], uncertainty)]
         time += 1
-        if time >= 50:
-            break
+        # if time >= 50:
+        #     break
     # Add trajectory to update the safe set and value function
 
     return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
