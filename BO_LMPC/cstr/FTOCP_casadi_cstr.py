@@ -40,8 +40,8 @@ class FTOCP(object):
         self.args = args
         self.len_conx = 0
         self.len_conu = 0
-        self.u_min = -15
-        self.u_max = 15
+        self.u_min = -10
+        self.u_max = 10
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
         wb = np.dot(G, np.array([2., 0.1]))

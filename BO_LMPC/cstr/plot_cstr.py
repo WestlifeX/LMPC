@@ -35,7 +35,7 @@ for i in range(N):
     for name in file_names:
         if name == 'bo_{}.md'.format(idx) or name == 'tvbo_{}.md'.format(idx) or \
                 name == 'direct_{}.md'.format(idx) \
-                or name == 'tvbo_unlim_{}.md'.format(idx):
+                or name == 'unlim_{}.md'.format(idx):
             with open('./results/' + name) as f:
                 lines = f.readlines()
                 lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
@@ -85,7 +85,7 @@ tlbo_error = np.vstack((all_best[1]-tlbo_min, tlbo_max-all_best[1]))
 # plt.show()
 colors = ['sandybrown', 'purple', 'green', 'steelblue']
 alpha = 0.1
-x = np.linspace(1, 20, 20)
+x = np.linspace(1, end, end)
 plt.plot(x, all_best[0], label='Generic BO', lw=2, color=colors[0])
 # plt.step(x, all_best[0], label='generic bo', lw=2, color='purple')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[0], bo_std, capsize=3)
@@ -103,9 +103,9 @@ plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2
 plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
                  facecolor=colors[2], edgecolor='none')
 #
-# plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,
-#                  facecolor=colors[3], edgecolor='none')
+plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,
+                 facecolor=colors[3], edgecolor='none')
 
 # plt.plot(all_best[3], label='tvbo all')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
@@ -124,7 +124,7 @@ plt.savefig('./figs/cost.jpg', dpi=1200)
 plt.show()
 
 n = 2
-for i in range(20):
+for i in range(end):
     print(str(i+1) + ' & ' + str(round(all_best[1, i], n)) + '(' + str(round(all_best[1, i]-tlbo_std[i], n))
           + ', ' + str(round(all_best[1, i]+tlbo_std[i], n)) + ')'
           + ' & ' + str(round(all_best[0, i], n)) + '(' + str(round(all_best[0, i]-bo_std[i], n))

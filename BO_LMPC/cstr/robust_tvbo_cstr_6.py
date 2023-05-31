@@ -136,9 +136,7 @@ def main():
             n_inital_points = 0
             n_iters = 10
 
-        if train_x.shape[0] > data_limit:
-            train_x = train_x[-data_limit:, :]
-            train_y = train_y[-data_limit:, :]
+
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
@@ -193,6 +191,10 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
+
+        # if train_x.shape[0] > data_limit:
+        #     train_x = train_x[-data_limit:, :]
+        #     train_y = train_y[-data_limit:, :]
 
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],

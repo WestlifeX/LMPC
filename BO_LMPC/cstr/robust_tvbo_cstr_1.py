@@ -136,9 +136,9 @@ def main():
             n_inital_points = 0
             n_iters = 10
 
-        if train_x.shape[0] > data_limit:
-            train_x = train_x[-data_limit:, :]
-            train_y = train_y[-data_limit:, :]
+        # if train_x.shape[0] > data_limit:
+        #     train_x = train_x[-data_limit:, :]
+        #     train_y = train_y[-data_limit:, :]
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)

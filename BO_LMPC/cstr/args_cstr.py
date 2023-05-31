@@ -1,6 +1,6 @@
 import numpy as np
-Q = np.diag([1., 1.])
-R = np.eye(1) * 5
+Q = np.diag([1., 1.]) * 5
+R = np.eye(1) * 1
 R_delta = np.eye(1) * 1
 
 Ad = np.array([[0.7776, -0.0045], [26.6185, 1.8555]])
@@ -13,9 +13,9 @@ Bd = np.array([[-0.0004], [0.2907]])
 # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
 A = np.vstack((np.hstack((Ad, Bd)), np.hstack((np.zeros((Bd.shape[1], Ad.shape[1])), np.eye(Bd.shape[1])))))
 B = np.vstack((Bd, np.eye(Bd.shape[1])))
-x0 = [-0.29, 5.]
+x0 = [-0.33, 5.]
 coef = 0.4
-totalIterations = 25
+totalIterations = 20
 
 G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
 def compute_uncertainty(xt):
