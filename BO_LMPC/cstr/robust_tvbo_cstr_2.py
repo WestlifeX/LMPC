@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 10.]] * (n_params))
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -105,7 +105,7 @@ def main():
         print("Initializing")
         objs = []
         if it == 0:
-            n_inital_points = 5
+            n_inital_points = 10
             n_iters = 0
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
@@ -134,7 +134,7 @@ def main():
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
-            n_iters = 5
+            n_iters = 10
 
 
         # model = gp.GaussianProcess(kernel, 0.001)
@@ -296,7 +296,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         #     break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 10.]] * (n_params))
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -149,6 +149,8 @@ def main():
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
                 next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
+            if next_sample[0] == next_sample[1] and next_sample[1] == next_sample[2] and next_sample[0] != 1:
+                next_sample = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1], theta_bounds.shape[0])
             lmpc.theta_update(next_sample.tolist())
             K, _, _ = dlqr(Ad, Bd, lmpc.Q, lmpc.R)
             K = -K
@@ -166,6 +168,7 @@ def main():
             # recompute y(1:t-1)
             for i in range(n_inital_points+idx):
                 train_y[i-n_inital_points-idx] = (objs[i] - mu_d) / sigma_d
+
             xcls.append(xcl)
             ucls.append(ucl)
             xcls_true.append(xcl_true)
@@ -178,7 +181,10 @@ def main():
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
             model = GaussianProcessRegressor(kernel=kernels.Matern())
-            model.fit(train_x, train_y)
+            try:
+                model.fit(train_x, train_y)
+            except ValueError:
+                a = 1
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
         # theta = train_x[:][np.argmin(train_y[:], axis=0)[0]]
@@ -192,9 +198,9 @@ def main():
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
 
-        # if train_x.shape[0] > data_limit:
-        #     train_x = train_x[-data_limit:, :]
-        #     train_y = train_y[-data_limit:, :]
+        if train_x.shape[0] > data_limit:
+            train_x = train_x[-data_limit:, :]
+            train_y = train_y[-data_limit:, :]
 
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],

@@ -45,7 +45,7 @@ class FTOCP(object):
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         # G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
         # wb = np.dot(G, np.array([2., 0.1]))
-        W_b = np.array([0.05, 0.05, 0.05, 0.05]).reshape(-1, 1)
+        W_b = np.array([0.1, 0.1, 0.5, 0.5]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([2., 2., 5., 10.]).reshape(-1, 1)

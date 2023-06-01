@@ -192,9 +192,9 @@ def main():
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
 
-        # if train_x.shape[0] > data_limit:
-        #     train_x = train_x[-data_limit:, :]
-        #     train_y = train_y[-data_limit:, :]
+        if train_x.shape[0] > data_limit:
+            train_x = train_x[-data_limit:, :]
+            train_y = train_y[-data_limit:, :]
 
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],
@@ -298,7 +298,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         #     break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

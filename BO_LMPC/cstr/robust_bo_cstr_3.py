@@ -238,7 +238,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         #     break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":
