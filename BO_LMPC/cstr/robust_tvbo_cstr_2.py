@@ -105,7 +105,7 @@ def main():
         print("Initializing")
         objs = []
         if it == 0:
-            n_inital_points = 10
+            n_inital_points = 5
             n_iters = 0
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
@@ -134,11 +134,11 @@ def main():
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
-            n_iters = 10
+            n_iters = 5
 
 
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.Matern())
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -177,7 +177,7 @@ def main():
             train_y = np.append(train_y, y).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.Matern())
+            model = GaussianProcessRegressor(kernel=kernels.RBF())
             model.fit(train_x, train_y)
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
@@ -191,9 +191,9 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
-        # if train_x.shape[0] > data_limit:
-        #     train_x = train_x[-data_limit:, :]
-        #     train_y = train_y[-data_limit:, :]
+        if train_x.shape[0] > data_limit:
+            train_x = train_x[-data_limit:, :]
+            train_y = train_y[-data_limit:, :]
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],
         #                    xcls_true[np.argmin(train_y[:], axis=0)[0]],
@@ -296,7 +296,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         #     break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

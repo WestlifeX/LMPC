@@ -40,15 +40,15 @@ class FTOCP(object):
         self.args = args
         self.len_conx = 0
         self.len_conu = 0
-        self.u_min = -10
-        self.u_max = 10
+        self.u_min = -4.5
+        self.u_max = 4.5
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
-        wb = np.dot(G, np.array([2., 0.1]))
-        W_b = np.array([wb[0], wb[0], wb[1], wb[1]]).reshape(-1, 1)
+        # G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
+        # wb = np.dot(G, np.array([2., 0.1]))
+        W_b = np.array([0.05, 0.05, 0.05, 0.05]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
-        X_b = np.array([0.5, 0.5, 5., 5.]).reshape(-1, 1)
+        X_b = np.array([2., 2., 5., 10.]).reshape(-1, 1)
         self.X = polyhedron(X_A, X_b)
         U_A = np.array([[1.], [-1.]])
         U_b = np.array([self.u_max, self.u_max]).reshape(-1, 1)
@@ -72,8 +72,10 @@ class FTOCP(object):
         K_mrpi.vertices = np.array([np.max(K_mrpi.vertices), -np.max(K_mrpi.vertices)]).reshape(-1, 1)
         self.mrpi_u = self.U.minkowskiDiff(K_mrpi)
         self.mrpi_u.vertices = np.round(self.mrpi_u.vertices, 3)
-        self.mrpi_u.compute_Hrep()
-
+        try:
+            self.mrpi_u.compute_Hrep()
+        except ValueError:
+            a = 1
         self.constr_x = []
         self.constr_u = []
         self.Kxs = []
@@ -111,7 +113,10 @@ class FTOCP(object):
             self.constr_u[i].vertices = np.round(self.constr_u[i].vertices, 3)
             self.constr_u[i].compute_Hrep()
 
-            self.Kxs.append(Kx)
+            try:
+                self.Kxs.append(Kx)
+            except ValueError:
+                a = 1
         # 加了N这个参数，所以求的已经不是mrpi而是前五步的mrpi，已经够用了
 
             # self.len_conu += self.constr_u[i].A.shape[0]
@@ -219,8 +224,8 @@ class FTOCP(object):
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0.] * (self.n * (self.N)) + [-0.] * self.n + [0] * 1
             ubg = [0]*(self.len_conx + self.len_conu) + [0.] * (self.n * (self.N)) + [0.] * self.n + [0] * 1
-            lbx = [x0[0], x0[1]] + [-0.5, -5.] * int(self.n/2 * (self.N)) + [self.u_min] * (self.d * self.N) + [0.] * SS_.shape[1]
-            ubx = [x0[0], x0[1]] + [0.5, 5.] * int(self.n/2 * (self.N)) + [self.u_max] * (self.d * self.N) + [1.] * SS_.shape[1]
+            lbx = [x0[0], x0[1]] + [-2., -10.] * int(self.n/2 * (self.N)) + [self.u_min] * (self.d * self.N) + [0.] * SS_.shape[1]
+            ubx = [x0[0], x0[1]] + [2., 5.] * int(self.n/2 * (self.N)) + [self.u_max] * (self.d * self.N) + [1.] * SS_.shape[1]
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][self.len_conx+self.len_conu:self.len_conx+self.len_conu+self.n*(self.N)])
             if np.sum(g) > 0.001:
@@ -237,8 +242,8 @@ class FTOCP(object):
             solver = nlpsol('solver', 'ipopt', nlp, options)
             lbg = [-np.inf]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N))
             ubg = [0]*(self.len_conx + self.len_conu) + [0] * (self.n * (self.N))
-            lbx = [x0[0], x0[1]] + [-0.5, -5.] * int(self.n/2 * (self.N)) + [self.u_min] * (self.d * self.N)
-            ubx = [x0[0], x0[1]] + [0.5, 5.] * int(self.n/2 * (self.N)) + [self.u_max] * (self.d * self.N)
+            lbx = [x0[0], x0[1]] + [-2., -10.] * int(self.n/2 * (self.N)) + [self.u_min] * (self.d * self.N)
+            ubx = [x0[0], x0[1]] + [2., 5.] * int(self.n/2 * (self.N)) + [self.u_max] * (self.d * self.N)
             sol = solver(lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
             g = np.array(sol['g'][-self.n * (self.N + 1):])
             if np.sum(g) > 0.001:

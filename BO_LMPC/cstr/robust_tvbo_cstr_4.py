@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 1000.]] * (n_params))
+    theta_bounds = np.array([[1., 100.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -135,7 +135,7 @@ def main():
 
 
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.Matern())
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -174,7 +174,7 @@ def main():
             train_y = np.append(train_y, y).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.Matern())
+            model = GaussianProcessRegressor(kernel=kernels.RBF())
             model.fit(train_x, train_y)
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]

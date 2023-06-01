@@ -4,7 +4,7 @@ from numpy import linalg as la
 import pdb
 import copy
 import itertools
-
+from args_cstr import Q, R
 
 class LMPC(object):
     """Learning Model Predictive Controller (LMPC)
@@ -26,8 +26,8 @@ class LMPC(object):
         # self.R_delta = ftocp.R_delta
         self.it = 0
         self.CVX = CVX
-        self.Q_true = np.diag([5., 5.])
-        self.R_true = np.eye(1) * 1
+        self.Q_true = Q
+        self.R_true = R
         # self.R_delta_true = np.eye(1) * 1
         self.Qfun_true = []
 
