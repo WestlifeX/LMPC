@@ -21,7 +21,7 @@ from scipy.linalg import block_diag
 def main():
     np.random.seed(1)
     Ts = 0.1
-    data_limit = 50
+    data_limit = 10
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -32,7 +32,7 @@ def main():
     # x0 = [-2., 6.]
     # x0 = [4., 1.]
     # Initialize FTOCP object
-    N_feas = 10
+    N_feas = 50
     # 产生初始可行解的时候应该Q、R随便
     ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, 0)
     # ====================================================================================
@@ -136,9 +136,7 @@ def main():
             n_inital_points = 0
             n_iters = 10
 
-        if train_x.shape[0] > data_limit:
-            train_x = train_x[-data_limit:, :]
-            train_y = train_y[-data_limit:, :]
+
         # model = gp.GaussianProcess(kernel, 0.001)
         model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
@@ -193,7 +191,9 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
-
+        if train_x.shape[0] > data_limit:
+            train_x = train_x[-data_limit:, :]
+            train_y = train_y[-data_limit:, :]
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],
         #                    xcls_true[np.argmin(train_y[:], axis=0)[0]],

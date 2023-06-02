@@ -40,12 +40,12 @@ class FTOCP(object):
         self.args = args
         self.len_conx = 0
         self.len_conu = 0
-        self.u_min = -4.5
-        self.u_max = 4.5
+        self.u_min = -1.
+        self.u_max = 1.
         W_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         # G = np.array([[-0.0002, 0.0893], [0.1390, 1.2267]])
         # wb = np.dot(G, np.array([2., 0.1]))
-        W_b = np.array([0.1, 0.1, 0.5, 0.5]).reshape(-1, 1)
+        W_b = np.array([0.03, 0.03, 0.2, 0.2]).reshape(-1, 1)
         self.W = polyhedron(W_A, W_b)
         X_A = np.array([[1., 0], [-1., 0], [0, 1.], [0, -1.]])
         X_b = np.array([2., 2., 5., 10.]).reshape(-1, 1)

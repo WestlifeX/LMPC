@@ -19,7 +19,7 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(4)
+    np.random.seed(7)
     Ts = 0.1
     data_limit = 50
     K, _, _ = dlqr(Ad, Bd, Q, R)
@@ -32,7 +32,7 @@ def main():
     # x0 = [-2., 6.]
     # x0 = [4., 1.]
     # Initialize FTOCP object
-    N_feas = 10
+    N_feas = 50
     # 产生初始可行解的时候应该Q、R随便
     ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, 0)
     # ====================================================================================
@@ -121,7 +121,10 @@ def main():
                 train_obj, xcl, ucl, xcl_true, ucl_true = \
                     iters_once(x0, lmpc, Ts, 0, K=K)
                 objs.append(train_obj)
-
+                xcls.append(xcl)
+                ucls.append(ucl)
+                xcls_true.append(xcl_true)
+                ucls_true.append(ucl_true)
 
             mu_d = np.mean(objs)
             sigma_d = np.sqrt(np.mean((objs-mu_d)**2))
@@ -135,7 +138,7 @@ def main():
 
 
         # model = gp.GaussianProcess(kernel, 0.001)
-        model = GaussianProcessRegressor(kernel=kernels.RBF())
+        model = GaussianProcessRegressor(kernel=kernels.Matern())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -163,10 +166,10 @@ def main():
             # recompute y(1:t-1)
             for i in range(n_inital_points+idx):
                 train_y[i-n_inital_points-idx] = (objs[i] - mu_d) / sigma_d
-            # xcls.append(xcl)
-            # ucls.append(ucl)
-            # xcls_true.append(xcl_true)
-            # ucls_true.append(ucl_true)
+            xcls.append(xcl)
+            ucls.append(ucl)
+            xcls_true.append(xcl_true)
+            ucls_true.append(ucl_true)
             if len(objs) == 1:
                 y = 0
             else:
@@ -174,7 +177,7 @@ def main():
             train_y = np.append(train_y, y).reshape(-1, 1)
             train_x = np.vstack((train_x, next_sample.reshape(1, -1)))
 
-            model = GaussianProcessRegressor(kernel=kernels.RBF())
+            model = GaussianProcessRegressor(kernel=kernels.Matern())
             model.fit(train_x, train_y)
 
         theta = train_x[-(n_inital_points+n_iters):][np.argmin(train_y[-(n_inital_points+n_iters):], axis=0)[0]]
@@ -188,14 +191,9 @@ def main():
             iters_once(x0, lmpc, Ts, 0, K=K)
         lmpc.addTrajectory(xcl, ucl)
         # train_y[np.argmin(train_y[:], axis=0)] = res
-        xcls.append(xcl)
-        ucls.append(ucl)
-        xcls_true.append(xcl_true)
-        ucls_true.append(ucl_true)
         if train_x.shape[0] > data_limit:
             train_x = train_x[-data_limit:, :]
             train_y = train_y[-data_limit:, :]
-
         # lmpc.addTrajectory(xcls[np.argmin(train_y[:], axis=0)[0]],
         #                    ucls[np.argmin(train_y[:], axis=0)[0]],
         #                    xcls_true[np.argmin(train_y[:], axis=0)[0]],
@@ -220,10 +218,10 @@ def main():
     print(np.argmin(returns))
     tag = 'bayes' if bayes else 'no_bayes'
     np.save('./returns_' + tag + '.npy', returns)
-    np.save('tvbo_3_xcl_true.npy', xcls_true[np.argmin(returns[:], axis=0)-1])
-    np.save('tvbo_3_ucl_true.npy', ucls_true[np.argmin(returns[:], axis=0)-1])
-    np.save('tvbo_3_xcl.npy', xcls[np.argmin(returns[:], axis=0)-1])
-    np.save('tvbo_3_ucl.npy', ucls[np.argmin(returns[:], axis=0)-1])
+    np.save('tvbo_3_xcl_true.npy', xcls_true[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_ucl_true.npy', ucls_true[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_xcl.npy', xcls[np.argmin(returns[:], axis=0)])
+    np.save('tvbo_3_ucl.npy', ucls[np.argmin(returns[:], axis=0)])
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
     # K, _, _ = dlqr(Ad, Bd, Q, R)
     # K = -K

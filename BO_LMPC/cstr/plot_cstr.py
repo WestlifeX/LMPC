@@ -20,7 +20,7 @@ file_names = os.listdir('./results/')
 # 如上所示的uncertainty，太大的就直接饱和了
 N = 6
 N_alg = 4
-end = 20
+end = 30
 all = np.zeros((N_alg, end))
 all_best = np.zeros((N_alg, end))
 bo_data = np.zeros((N, end))
@@ -99,9 +99,9 @@ plt.fill_between(range(1, all_best.shape[1]+1), all_best[1]-tlbo_std, all_best[1
                  facecolor=colors[1], edgecolor='none')
 # plt.plot(all_best[2], label='lmpc')
 
-# plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
-#                  facecolor=colors[2], edgecolor='none')
+plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
+                 facecolor=colors[2], edgecolor='none')
 # #
 # plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
 # plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,

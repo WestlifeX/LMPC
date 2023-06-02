@@ -18,8 +18,8 @@ plt.grid()
 ax = plt.gca()
 ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
-tube_index_lmpc = [0, 1, 2, 3, 4, 84]
-tube_index_tvbo = [0, 1, 2, 3, 4, 56]
+tube_index_lmpc = [0, 1, 2, 3, 4]
+tube_index_tvbo = [0, 1, 2, 3, 4]
 for i in tube_index_lmpc:
     v_lm = v_lmpc[i]
     ax = plt.gca()
