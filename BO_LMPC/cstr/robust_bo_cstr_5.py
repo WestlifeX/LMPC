@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from FTOCP_casadi_cstr import FTOCP
-from LMPC_cstr import LMPC
+from FTOCP_casadi_cstr1 import FTOCP
+from LMPC_cstr1 import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
@@ -13,7 +13,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
-from args_cstr import Q, R, R_delta, compute_uncertainty, Ad, Bd, x0, coef, totalIterations
+from args_cstr1 import Q, R, R_delta, compute_uncertainty, Ad, Bd, x0, coef, totalIterations
 from acq_func_cstr import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -80,7 +80,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[1., 10]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
@@ -119,7 +119,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.Matern())
+        model = GaussianProcessRegressor(kernel=kernels.RBF())
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -129,7 +129,7 @@ def main():
             #            2 * n_params * np.log(
             #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
             # beta = np.sqrt(beta)
-            beta = 100
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):

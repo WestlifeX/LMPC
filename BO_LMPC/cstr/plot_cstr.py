@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-file_names = os.listdir('./results/')
+file_names = os.listdir('./results1/')
 # file_names = os.listdir('./new_result_2/')
 # bo: 基础的做bo，上一次数据不会用到下次，上次先验也不用到下次
 # linearize: 模型有线性化误差
@@ -20,7 +20,7 @@ file_names = os.listdir('./results/')
 # 如上所示的uncertainty，太大的就直接饱和了
 N = 6
 N_alg = 4
-end = 30
+end = 20
 all = np.zeros((N_alg, end))
 all_best = np.zeros((N_alg, end))
 bo_data = np.zeros((N, end))
@@ -36,7 +36,7 @@ for i in range(N):
         if name == 'bo_{}.md'.format(idx) or name == 'tvbo_{}.md'.format(idx) or \
                 name == 'direct_{}.md'.format(idx) \
                 or name == 'unlim_{}.md'.format(idx):
-            with open('./results/' + name) as f:
+            with open('./results1/' + name) as f:
                 lines = f.readlines()
                 lines = [float(i.strip().strip('[[').strip(']]')) for i in lines]
                 lines = np.array(lines)
@@ -103,9 +103,9 @@ plt.plot(x, all_best[2], label='Unnormalized Efficient BO', lw=2, color=colors[2
 plt.fill_between(range(1, all_best.shape[1]+1), all_best[2]-direct_std, all_best[2]+direct_std, alpha=alpha,
                  facecolor=colors[2], edgecolor='none')
 # #
-# plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
-# plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,
-#                  facecolor=colors[3], edgecolor='none')
+plt.plot(x, all_best[3], label='Unbounded Efficient BO', lw=2, color=colors[3])
+plt.fill_between(range(1, all_best.shape[1]+1), all_best[3]-unlim_std, all_best[3]+unlim_std, alpha=alpha,
+                 facecolor=colors[3], edgecolor='none')
 
 # plt.plot(all_best[3], label='tvbo all')
 # plt.errorbar(np.arange(all_best.shape[1]), all_best[1], bo_std, capsize=3)
@@ -120,7 +120,7 @@ ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
 plt.legend(prop=font)
 plt.grid()
-plt.savefig('./figs/cost.jpg', dpi=1200)
+plt.savefig('./figs/cost_cstr.png', dpi=600)
 plt.show()
 
 n = 2

@@ -7,7 +7,7 @@ font = {'family': 'Times New Roman', 'size': 16}
 colors = ['sandybrown', 'purple']
 xcl_tvbo = np.load('tvbo_3_xcl.npy')
 xcl_lmpc = np.load('own_xcl.npy')
-v_tvbo = np.load('./vertices/tvbo_1/vertices_14.npy', allow_pickle=True)
+v_tvbo = np.load('./vertices/tvbo_1/vertices_18.npy', allow_pickle=True)
 v_lmpc = np.load('./vertices/own/vertices_19.npy', allow_pickle=True)
 
 plt.plot(xcl_lmpc[:, 0], xcl_lmpc[:, 1], lw=2, label='RLMPC', color=colors[0])
@@ -18,8 +18,8 @@ plt.grid()
 ax = plt.gca()
 ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
-tube_index_lmpc = [0, 1, 2, 3, 4]
-tube_index_tvbo = [0, 1, 2, 3, 4]
+tube_index_lmpc = [0, 1, 2]
+tube_index_tvbo = [0, 1, 2]
 for i in tube_index_lmpc:
     v_lm = v_lmpc[i]
     ax = plt.gca()
@@ -41,12 +41,12 @@ for i in tube_index_tvbo:
 plt.legend(prop=font)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
-plt.savefig('./figs/x_tube.jpg', dpi=1200, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/x_tube_cstr.png', dpi=1200, bbox_inches='tight', pad_inches=0)
 plt.show()
 
 #%%
 ucl_tvbo = np.load('tvbo_3_ucl.npy')
-uv_tvbo = np.load('./vertices/tvbo_1/Kxs_14.npy', allow_pickle=True)
+uv_tvbo = np.load('./vertices/tvbo_1/Kxs_18.npy', allow_pickle=True)
 ucl_lmpc = np.load('own_ucl.npy')
 uv_lm = np.load('./vertices/own/Kxs_19.npy', allow_pickle=True)
 fig, ax = plt.subplots(1, 2, figsize=[13, 6])
@@ -58,12 +58,12 @@ x_lm = np.linspace(1, ucl_lmpc.shape[0], ucl_lmpc.shape[0])
 for i in range(ucl_lmpc.shape[0]):
     lm.append(np.max(uv_lm[i]))
 lm = np.array(lm)
-ax[0].scatter(x_lm[:10], ucl_lmpc[:10], color=colors[0], s=20)
+ax[0].scatter(x_lm, ucl_lmpc, color=colors[0], s=20)
 ax[0].errorbar(x_lm[u_tube_index_lmpc], ucl_lmpc[u_tube_index_lmpc], lm[u_tube_index_lmpc], fmt='none', ecolor=colors[0], elinewidth=2, capsize=4, label='lmpc')
 ax[0].set_title('RLMPC', font)
 ax[0].set_xlabel('Iteration', font)
 ax[0].set_ylabel('u', font)
-ax[0].set_ylim(0, 15)
+ax[0].set_ylim(-2, 5)
 # ax = ax[0].gca()
 ax[0].spines['right'].set_color('none')
 ax[0].spines['top'].set_color('none')
@@ -73,12 +73,12 @@ x_tb = np.linspace(1, ucl_tvbo.shape[0], ucl_tvbo.shape[0])
 for i in range(ucl_tvbo.shape[0]):
     tb.append(np.max(uv_tvbo[i]))
 tb = np.array(tb)
-ax[1].scatter(x_tb[:10], ucl_tvbo[:10], color=colors[1], s=20)
+ax[1].scatter(x_tb, ucl_tvbo, color=colors[1], s=20)
 ax[1].errorbar(x_tb[u_tube_index_tvbo], ucl_tvbo[u_tube_index_tvbo], tb[u_tube_index_tvbo], fmt='none', ecolor=colors[1], elinewidth=2, capsize=4, label='transfer learning bo')
 ax[1].set_title('Efficient BO', font)
 ax[1].set_xlabel('Iteration', font)
 ax[1].set_ylabel('u', font)
-ax[1].set_ylim(0, 15)
+ax[1].set_ylim(-2, 5)
 # ax = ax[1].gca()
 ax[1].spines['right'].set_color('none')
 ax[1].spines['top'].set_color('none')
@@ -106,5 +106,5 @@ for i in range(5):
 # # plt.scatter(ucl_tvbo, s=10)
 # plt.legend()
 plt.subplots_adjust(wspace=1.2)
-plt.savefig('./figs/u_tube.jpg', dpi=1200, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/u_tube_cstr.png', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()

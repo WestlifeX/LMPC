@@ -1,9 +1,9 @@
 import numpy as np
 import torch
-from args_cstr import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef, totalIterations
-from FTOCP_casadi_cstr import FTOCP
+from args_cstr1 import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef, totalIterations
+from FTOCP_casadi_cstr1 import FTOCP
 # from FTOCP_robust import FTOCP
-from LMPC_cstr import LMPC
+from LMPC_cstr1 import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
@@ -80,7 +80,7 @@ def main():
     bayes = True
       # Number of iterations to perform
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    theta_bounds = np.array([[1., 10.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")

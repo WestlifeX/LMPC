@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from FTOCP_casadi_cstr import FTOCP
-from LMPC_cstr import LMPC
+from FTOCP_casadi_cstr1 import FTOCP
+from LMPC_cstr1 import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
@@ -13,14 +13,14 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
-from args_cstr import Q, R, R_delta, compute_uncertainty, Ad, Bd, x0, coef, totalIterations
+from args_cstr1 import Q, R, R_delta, compute_uncertainty, Ad, Bd, x0, coef, totalIterations
 from acq_func_cstr import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(7)
+    np.random.seed(4)
     Ts = 0.1
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
@@ -80,7 +80,7 @@ def main():
     lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 100]] * (n_params))
+    theta_bounds = np.array([[1., 10]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")

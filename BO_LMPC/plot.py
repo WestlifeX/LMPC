@@ -119,7 +119,7 @@ ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
 plt.legend(prop=font)
 plt.grid()
-plt.savefig('./figs/cost.jpg', dpi=1200)
+plt.savefig('./figs/cost.png', dpi=600)
 plt.show()
 
 n = 2

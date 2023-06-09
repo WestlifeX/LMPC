@@ -19,9 +19,9 @@ import time as tim
 from scipy.linalg import block_diag
 
 def main():
-    np.random.seed(6)
+    np.random.seed(33)
     Ts = 0.1
-    data_limit = 50
+    data_limit = 10
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -105,7 +105,7 @@ def main():
         print("Initializing")
         objs = []
         if it == 0:
-            n_inital_points = 10
+            n_inital_points = 2
             n_iters = 0
             train_x = np.random.uniform(theta_bounds[:, 0], theta_bounds[:, 1],
                                         size=(n_inital_points, theta_bounds.shape[0]))
@@ -129,7 +129,7 @@ def main():
             train_y = np.array(train_y).reshape(-1, 1)
         else:
             n_inital_points = 0
-            n_iters = 10
+            n_iters = 2
 
 
         # model = gp.GaussianProcess(kernel, 0.001)

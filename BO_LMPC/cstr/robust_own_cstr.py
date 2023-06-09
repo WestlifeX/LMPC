@@ -1,13 +1,19 @@
 import numpy as np
+import torch
 
 from FTOCP_casadi_cstr import FTOCP
-from LMPC_cstr import LMPC
+# from FTOCP import FTOCP
+from LMPC import LMPC
+import pdb
 import matplotlib
+from scipy.integrate import odeint
+from tqdm import tqdm
 
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
+from BO_LMPC.objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
 from args_cstr import Q, R, R_delta, compute_uncertainty, x0, coef, Ad, Bd, totalIterations
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import cvxpy
@@ -15,17 +21,30 @@ import time as ti
 from control import dlqr
 def main():
     # np.random.seed(args.seed)
-    np.random.seed(3)
+    # np.random.seed(5)
     Ts = 0.1
+    params = get_params()
+    # Ad = np.array([[0.995, 0.095], [-0.095, 0.900]])
+    # Bd = np.array([[0.048], [0.95]]
+
+    # A = np.array([[1, 1], [0, 1]])
+    # B = np.array([[0], [1]])
+    # Q = np.eye(4) * 10  # np.eye(2) 非线性下真实的Q
+    # R = np.eye(1)  # np.array([[1]]) 非线性下真实的R
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
     # K = -K
     # K = np.array([0.6865, 2.1963, 16.7162, 1.4913]).reshape(1, -1)
     print("Computing a first feasible trajectory")
+    # Initial Condition
+    # x0 = [1, 0, 0.25, -0.01]
+    # x0 = [-2., 6.]
+    # x0 = [4., 1.]
+    # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, 0)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -64,9 +83,9 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, Q, R, R_delta, K, 0)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, Q, R, R_delta, K, params)  # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = False
     n_params = 3
     # lmpc.theta_update([1000, 1e-10, 1e-10, 1e-10])
@@ -80,10 +99,10 @@ def main():
         vertices = []
         Kx = []
         if it < totalIterations - 1:
-            iters_once(x0, lmpc, Ts, 0, K=K)
+            iters_once(x0, lmpc, Ts, params, K=K)
 
         else:
-            _, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, 0, K=K)
+            res, xcl, ucl, xcl_true, ucl_true = iters_once(x0, lmpc, Ts, params, K=K)
             np.save('own_xcl_true.npy', xcl_true)
             np.save('own_ucl_true.npy', ucl_true)
             np.save('own_xcl.npy', xcl)
@@ -108,7 +127,7 @@ def main():
     np.save('./returns_' + tag + '.npy', returns)
     np.save('./times_npy', times)
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
-    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, 0)
+    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
@@ -163,9 +182,9 @@ def iters_once(x0, lmpc, Ts, params, K, res=False):
     # Add trajectory to update the safe set and value function
     if not res:
         # if np.dot(xcl[time], xcl[time]) <= 10 ** (-6):
-        lmpc.addTrajectory(xcl, ucl)
+        lmpc.addTrajectory(xcl, ucl, xcl_true, ucl_true)
     # 这里对Q参数赋值，计算的是真实轨迹下真实回报,return这个值单纯是为了计算实际cost
-    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":

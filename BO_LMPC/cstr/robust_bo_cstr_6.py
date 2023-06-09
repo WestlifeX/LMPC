@@ -20,7 +20,7 @@ import time as tim
 from scipy.linalg import block_diag
 # no fine-grained tvbo, just a simple bo
 def main():
-    np.random.seed(11)
+    np.random.seed(33)
     Ts = 0.1
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
@@ -86,8 +86,8 @@ def main():
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 5
-    n_iters = 5
+    n_inital_points = 1
+    n_iters = 1
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
@@ -129,7 +129,7 @@ def main():
             #            2 * n_params * np.log(
             #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
             # beta = np.sqrt(beta)
-            beta = 100
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):

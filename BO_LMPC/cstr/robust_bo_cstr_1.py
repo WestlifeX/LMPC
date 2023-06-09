@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from FTOCP_casadi_cstr import FTOCP
-from LMPC_cstr import LMPC
+from LMPC import LMPC
 import pdb
 import matplotlib
 from scipy.integrate import odeint
@@ -13,7 +13,8 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import pickle
-from args_cstr import Q, R, R_delta, compute_uncertainty, Ad, Bd, x0, coef, totalIterations
+from BO_LMPC.objective_functions_lqr import get_params, get_linearized_model, inv_pendulum
+from args_cstr import Q, R, R_delta, compute_uncertainty, A, B, Ad, Bd, x0, coef, totalIterations, theta_bounds
 from acq_func_cstr import opt_acquision
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import time as tim
@@ -22,6 +23,7 @@ from scipy.linalg import block_diag
 def main():
     np.random.seed(1)
     Ts = 0.1
+    params = get_params()
     K, _, _ = dlqr(Ad, Bd, Q, R)
     K = -K
     # K = np.array([1.7, 3.3]).reshape(1, -1)
@@ -35,7 +37,7 @@ def main():
     # Initialize FTOCP object
     N_feas = 10
     # 产生初始可行解的时候应该Q、R随便
-    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, 0)
+    ftocp_for_mpc = FTOCP(N_feas, Ad, Bd, coef * Q, R, R_delta, K, params)
     # ====================================================================================
     # Run simulation to compute feasible solution
     # ====================================================================================
@@ -75,19 +77,19 @@ def main():
     # 这个horizon length设置成3的时候会出现infeasible的情况
     # 理论上不应该无解，已经生成可行解了，不可能无解，可能是求解器的问题
     N_LMPC = 3  # horizon length
-    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, 0) # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
+    ftocp = FTOCP(N_LMPC, Ad, Bd, copy.deepcopy(Q), copy.deepcopy(R), copy.deepcopy(R_delta), K, params) # ftocp solved by LMPC，这里的Q和R在后面应该要一直变，初始值可以先用Q，R
     lmpc = LMPC(ftocp, CVX=True)  # Initialize the LMPC (decide if you wanna use the CVX hull)
-    lmpc.addTrajectory(xcl_feasible, ucl_feasible)  # Add feasible trajectory to the safe set
+    lmpc.addTrajectory(xcl_feasible, ucl_feasible, xcl_feasible_true, ucl_feasible_true)  # Add feasible trajectory to the safe set
     bayes = True
     n_params = 3
-    theta_bounds = np.array([[1., 100.]] * (n_params))
+    # theta_bounds = np.array([[1., 10.]] * (n_params))
     # lmpc.theta_update([5.23793828, 50.42607759, 30.01345335, 30.14379343])
     # run simulation
     print("Starting LMPC")
     returns = []
 
-    n_inital_points = 5
-    n_iters = 5
+    n_inital_points = 1
+    n_iters = 1
     # train_x = torch.FloatTensor(n_inital_points, len(theta)).uniform_(theta_bounds[0][0], theta_bounds[0][1])
     thresh = 1e-7
     last_params = np.array([1] * (n_params)).reshape(1, -1)
@@ -111,7 +113,7 @@ def main():
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
             train_obj, xcl, ucl, xcl_true, ucl_true = \
-                iters_once(x0, lmpc, Ts, 0, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
+                iters_once(x0, lmpc, Ts, params, K=K)  # 这里取个负号，因为我们的目标是取最小，而这个BO是找最大点
             train_y.append(train_obj)
             xcls.append(xcl)
             ucls.append(ucl)
@@ -119,7 +121,7 @@ def main():
             ucls_true.append(ucl_true)
         train_y = np.array(train_y).reshape(-1, 1)
 
-        model = GaussianProcessRegressor(kernel=kernels.Matern())
+        model = GaussianProcessRegressor(kernel=kernels.RBF(), normalize_y=True)
         model.fit(train_x, train_y)
         # model.fit(train_x, train_y)
         # model, mll = get_model(train_x, train_y)
@@ -129,7 +131,7 @@ def main():
             #            2 * n_params * np.log(
             #         (idx + 1) ** 2 * n_params * 0.035 * np.sqrt(np.log(4 * n_params * 0.006 / 0.01)))
             # beta = np.sqrt(beta)
-            beta = 100
+            beta = 1
             next_sample = opt_acquision(model, theta_bounds, beta=beta, ts=False)
             # 避免出现重复数据影响GP的拟合
             if np.any(np.abs(next_sample - train_x) <= thresh):
@@ -140,7 +142,7 @@ def main():
             lmpc.ftocp.K = K
             lmpc.ftocp.compute_mrpi()
             new_res, xcl, ucl, xcl_true, ucl_true = \
-                iters_once(x0, lmpc, Ts, 0, K=K)
+                iters_once(x0, lmpc, Ts, params, K=K)
             xcls.append(xcl)
             ucls.append(ucl)
             xcls_true.append(xcl_true)
@@ -155,7 +157,9 @@ def main():
         # lmpc.theta_update(theta.tolist()[0])
         # iters_once(x0, lmpc, Ts, params)
         lmpc.addTrajectory(xcls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
-                           ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
+                           ucls[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           xcls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]],
+                           ucls_true[np.argmin(train_y[-(n_inital_points + n_iters):], axis=0)[0]])
         last_params = copy.deepcopy(theta.reshape(1, -1))
         print('optimized theta: ', last_params)
 
@@ -172,7 +176,7 @@ def main():
     N = 100  # Set a very long horizon to fake infinite time optimal control problem
     # K, _, _ = dlqr(Ad, Bd, Q, R)
     # K = -K
-    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, 0)
+    ftocp_opt = FTOCP(N, Ad, Bd, copy.deepcopy(Q), R, R_delta, K, params)
     ftocp_opt.solve(x0)
     xOpt = ftocp_opt.xPred
     uOpt = ftocp_opt.uPred
@@ -238,7 +242,7 @@ def iters_once(x0, lmpc, Ts, params, K, SS=None, Qfun=None):
         #     break
     # Add trajectory to update the safe set and value function
 
-    return lmpc.computeCost(xcl, ucl, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
+    return lmpc.computeCost(xcl_true, ucl_true, Q, R, R_delta)[0], xcl, ucl, xcl_true, ucl_true
 
 
 if __name__ == "__main__":
