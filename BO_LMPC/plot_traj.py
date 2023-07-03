@@ -19,7 +19,7 @@ plt.tick_params(labelsize=12)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
 plt.legend(prop=font)
-plt.savefig('./figs/traj.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/traj.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()
 
 

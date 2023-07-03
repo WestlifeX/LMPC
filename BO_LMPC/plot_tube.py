@@ -39,7 +39,7 @@ for i in range(xcl_tvbo.shape[0]):
 plt.legend(prop=font)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
-plt.savefig('./figs/x_tube.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/x_tube.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()
 
 ucl_tvbo = np.load('tvbo_3_ucl_true.npy')
@@ -101,5 +101,5 @@ for i in range(5):
 # plt.legend()
 plt.tick_params(labelsize=12)
 plt.subplots_adjust(wspace=1.2)
-plt.savefig('./figs/u_tube.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/u_tube.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()

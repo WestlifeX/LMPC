@@ -121,7 +121,7 @@ ax.spines['top'].set_color('none')
 plt.tick_params(labelsize=12)
 plt.legend(prop=font)
 plt.grid()
-plt.savefig('./figs/cost_cstr.png', dpi=600)
+plt.savefig('./figs/cost_cstr.jpg', dpi=600)
 plt.show()
 
 n = 2

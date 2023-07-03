@@ -42,7 +42,7 @@ plt.tick_params(labelsize=12)
 plt.legend(prop=font)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
-plt.savefig('./figs/x_tube_cstr.png', dpi=1200, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/x_tube_cstr.jpg', dpi=1200, bbox_inches='tight', pad_inches=0)
 plt.show()
 
 #%%
@@ -110,5 +110,5 @@ for i in range(5):
 # plt.legend()
 plt.tick_params(labelsize=12)
 plt.subplots_adjust(wspace=1.2)
-plt.savefig('./figs/u_tube_cstr.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/u_tube_cstr.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()

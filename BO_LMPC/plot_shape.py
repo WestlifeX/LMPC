@@ -37,7 +37,7 @@ plt.colorbar(im, cax=cax)
 # ax.plot_surface(xx, yy, all_res[v:, :, 0] - all_res[v:, :, 1], cmap=plt.get_cmap('rainbow'))
 ax.set_title('(c) Variation between two iterations', font, y=-0.25)
 plt.subplots_adjust(wspace=0.6)
-plt.savefig('./figs/similarity.png', dpi=600, bbox_inches='tight', pad_inches=0)
+plt.savefig('./figs/similarity.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()
 a = 1
 
