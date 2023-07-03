@@ -62,6 +62,7 @@ ax[0].set_ylim(-1.1, 1.1)
 ax[0].spines['right'].set_color('none')
 ax[0].spines['top'].set_color('none')
 ax[0].grid()
+ax[0].tick_params(labelsize=12)
 tb = []
 x_tb = np.linspace(1, ucl_tvbo.shape[0], ucl_tvbo.shape[0])
 for i in range(ucl_tvbo.shape[0]):
@@ -98,6 +99,7 @@ for i in range(5):
 # plt.plot(ucl_tvbo, label='ucl tvbo')
 # # plt.scatter(ucl_tvbo, s=10)
 # plt.legend()
+plt.tick_params(labelsize=12)
 plt.subplots_adjust(wspace=1.2)
 plt.savefig('./figs/u_tube.png', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()

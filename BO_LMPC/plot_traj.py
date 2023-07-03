@@ -15,6 +15,7 @@ ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
 font = {'family': 'Times New Roman', 'size': 16}
 plt.grid()
+plt.tick_params(labelsize=12)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
 plt.legend(prop=font)

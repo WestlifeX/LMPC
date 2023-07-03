@@ -113,6 +113,7 @@ font = {'family': 'Times New Roman', 'size': 16}
 plt.xlabel('Iterations', font)
 plt.ylabel('Cost', font)
 
+plt.tick_params(labelsize=12)
 # 不显示右侧和上面的边框线
 ax = plt.gca()
 ax.spines['right'].set_color('none')

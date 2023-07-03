@@ -38,6 +38,7 @@ for i in tube_index_tvbo:
     patch = plt.Polygon(v_tb, color=colors[1], linestyle='solid', fill=False)
     ax.add_patch(patch)
 
+plt.tick_params(labelsize=12)
 plt.legend(prop=font)
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
@@ -68,6 +69,7 @@ ax[0].set_ylim(-2, 5)
 ax[0].spines['right'].set_color('none')
 ax[0].spines['top'].set_color('none')
 ax[0].grid()
+ax[0].tick_params(labelsize=12)
 tb = []
 x_tb = np.linspace(1, ucl_tvbo.shape[0], ucl_tvbo.shape[0])
 for i in range(ucl_tvbo.shape[0]):
@@ -83,6 +85,7 @@ ax[1].set_ylim(-2, 5)
 ax[1].spines['right'].set_color('none')
 ax[1].spines['top'].set_color('none')
 ax[1].grid()
+ax[0].tick_params(labelsize=12)
 for i in range(5):
     p1 = (i+1, ucl_lmpc[i]+lm[i])
     p2 = (i+1, ucl_lmpc[i]-lm[i])
@@ -105,6 +108,7 @@ for i in range(5):
 # plt.plot(ucl_tvbo, label='ucl tvbo')
 # # plt.scatter(ucl_tvbo, s=10)
 # plt.legend()
+plt.tick_params(labelsize=12)
 plt.subplots_adjust(wspace=1.2)
 plt.savefig('./figs/u_tube_cstr.png', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()

@@ -17,6 +17,7 @@ font = {'family': 'Times New Roman', 'size': 16}
 plt.grid()
 plt.xlabel('x[0]', font)
 plt.ylabel('x[1]', font)
+plt.tick_params(labelsize=12)
 plt.legend(prop=font)
 plt.savefig('./figs/traj_cstr.png', dpi=600, bbox_inches='tight', pad_inches=0)
 plt.show()
